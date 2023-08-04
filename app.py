@@ -26,6 +26,11 @@ class MenuSchema(Schema):
     id = fields.Int(dump_only=True)
     name = fields.Str(required=True)
 
+class MealIngredientSchema(Schema):
+    id = fields.Int(dump_only=True)
+    quantity = fields.Decimal(places=2, dump_only=True)
+    ingredient = fields.Nested(IngredientSchema(), dump_only=True)
+
 
 bp = Blueprint('Main', 'main')
 
@@ -43,7 +48,7 @@ class Meal(db.Model):
     name = db.Column(db.Text, nullable=False, unique=False)
     menu_id = db.mapped_column(db.ForeignKey('menus.id'))
     menu = db.relationship('Menu', back_populates='meals')
-    ingredients = db.relationship('Ingredient', back_populates='meals', secondary='meals_ingredients', lazy='dynamic')
+    ingredients = db.relationship('MealsIngredients', back_populates='meal')
 
 class Ingredient(db.Model):
     __tablename__ = 'ingredients'
@@ -51,7 +56,7 @@ class Ingredient(db.Model):
     name = db.Column(db.Text, nullable=False, unique=False)
     category = db.Column(db.Text, nullable=False, unique=False)
     unit = db.Column(db.Text, nullable=False, unique=False)
-    meals = db.relationship('Meal', back_populates='ingredients', secondary='meals_ingredients', lazy='dynamic')
+    meals = db.relationship('MealsIngredients', back_populates='ingredient')
 
 class MealsIngredients(db.Model):
     __tablename__ = 'meals_ingredients'
@@ -59,6 +64,8 @@ class MealsIngredients(db.Model):
     meal_id = db.mapped_column(db.ForeignKey('meals.id'))
     ingredient_id = db.mapped_column(db.ForeignKey('ingredients.id'))
     quantity = db.Column(db.Numeric, nullable=True, unique=False)
+    meal = db.relationship('Meal', back_populates='ingredients')
+    ingredient = db.relationship('Ingredient', back_populates='meals')
 
 #@bp.arguments(MenuSchema)
 @bp.route('/menus')
@@ -88,11 +95,10 @@ def get_meal(meal_id):
     return Meal.query.get_or_404(meal_id)
 
 @bp.route('/meals/<int:meal_id>/ingredients')
-@bp.response(200, IngredientSchema(many=True))
+@bp.response(200, MealIngredientSchema(many=True))
 def get_ingredients_for_meal(meal_id):
+    # TODO custom schema and do some transformation on these? Maybe make another class, create objects, and write a schema that maps to that class?
     meal = Meal.query.get_or_404(meal_id)
     return meal.ingredients
-
-# TODO: meals_ingredients route? We need a list of ingredients for a meal along with a quantity
 
 app.register_blueprint(bp)
