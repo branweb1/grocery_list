@@ -14,10 +14,15 @@ db.init_app(app)
 
 # this (de)serializes an object into json
 
-# class IngredientSchema(Schema):
-#     id = fields.Int(dump_only=True)
-#     name = fields.Str(required=True)
-#     unit = fields.Str(required=False)
+class IngredientSchema(Schema):
+    id = fields.Int(dump_only=True)
+    name = fields.Str(required=True)
+    unit = fields.Str(required=False)
+    category = fields.Str(required=True) # TODO constrain category
+
+    @post_load
+    def make_ingredient(self, data, **kwargs):
+        return Ingredient(**data)
 
 class MealSchema(Schema):
     id = fields.Int(dump_only=True)
@@ -77,7 +82,7 @@ class Ingredient(db.Model):
     id = db.mapped_column(db.Integer, primary_key=True)
     name = db.Column(db.Text, nullable=False, unique=False)
     category = db.Column(db.Text, nullable=False, unique=False)
-    unit = db.Column(db.Text, nullable=False, unique=False)
+    unit = db.Column(db.Text, nullable=True, unique=False)
     meals = db.relationship('MealIngredient', back_populates='ingredient')
 
 class MealIngredient(db.Model):
@@ -97,6 +102,48 @@ class SimpleIngredient:
         self.unit = unit
 
 #@bp.arguments(MenuSchema)
+@bp.get('/ingredients')
+@bp.response(200, IngredientSchema(many=True))
+def ingredient_index():
+    return Ingredient.query.all()
+
+# TODO handle eror if user posts in that is not a menu id
+# right now throws psycopg2.errors.ForeignKeyViolation:
+@bp.post('/ingredients')
+@bp.response(201, IngredientSchema)
+def create_ingredient():
+    schema = IngredientSchema()
+    ingredient = schema.make_ingredient(request.json)
+    db.session.add(ingredient)
+    db.session.commit()
+    return ingredient
+
+@bp.put('/ingredients/<int:ingredient_id>')
+@bp.response(200, IngredientSchema)
+def update_ingredient(ingredient_id):
+    ingredient = Ingredient.query.get_or_404(ingredient_id)
+    ingredient.name = request.json['name']
+    ingredient.unit = request.json['unit']
+    ingredient.name = request.json['category']
+    db.session.add(ingredient)
+    db.session.commit()
+    return meal
+
+
+@bp.get('/ingredients/<int:ingredient_id>')
+@bp.response(200, IngredientSchema)
+def read_ingredient(ingredient_id):
+    return Ingredient.query.get_or_404(ingredient_id)
+
+@bp.delete('/ingredients/<int:ingredient_id>')
+@bp.response(200)
+def delete_ingredient(ingredient_id):
+    ingredient = Ingredient.query.get_or_404(ingredient_id)
+    db.session.delete(ingredient)
+    db.session.commit()
+    return {"message": "ingredient deleted"}
+
+
 @bp.get('/menus')
 @bp.response(200, MenuSchema(many=True))
 def menu_index():
