@@ -2,6 +2,7 @@ from flask import Flask, request
 from flask_smorest import Blueprint, abort
 from marshmallow import Schema, fields, post_load
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.exc import NoResultFound
 
 db = SQLAlchemy()
 
@@ -21,6 +22,11 @@ db.init_app(app)
 class MealSchema(Schema):
     id = fields.Int(dump_only=True)
     name = fields.Str(required=True)
+    menu_id = fields.Int(required=False)
+
+    @post_load
+    def make_meal(self, data, **kwargs):
+        return Meal(**data)
 
 class MenuSchema(Schema):
     id = fields.Int(dump_only=True)
@@ -30,10 +36,16 @@ class MenuSchema(Schema):
     def make_menu(self, data, **kwargs):
         return Menu(**data)
 
-# class MealIngredientSchema(Schema):
-#     id = fields.Int(dump_only=True)
-#     quantity = fields.Decimal(places=2, dump_only=True)
-#     ingredient = fields.Nested(IngredientSchema(), dump_only=True)
+class MealIngredientSchema(Schema):
+    id = fields.Int(dump_only=True)
+    quantity = fields.Decimal(places=2, dump_only=True)
+#    ingredient = fields.Nested(IngredientSchema(), dump_only=True)
+    meal_id = fields.Int(dump_only=True)
+    ingredient_id = fields.Int(dump_only=True)
+    
+    @post_load
+    def make_meal_ingredient(self, data, **kwargs):
+        return MealIngredient(**data)
 
 class SimpleIngredientSchema(Schema):
     name = fields.Str(dump_only=True)
@@ -58,7 +70,7 @@ class Meal(db.Model):
     name = db.Column(db.Text, nullable=False, unique=False)
     menu_id = db.mapped_column(db.ForeignKey('menus.id'))
     menu = db.relationship('Menu', back_populates='meals')
-    ingredients = db.relationship('MealsIngredients', back_populates='meal')
+    ingredients = db.relationship('MealIngredient', back_populates='meal')
 
 class Ingredient(db.Model):
     __tablename__ = 'ingredients'
@@ -66,9 +78,9 @@ class Ingredient(db.Model):
     name = db.Column(db.Text, nullable=False, unique=False)
     category = db.Column(db.Text, nullable=False, unique=False)
     unit = db.Column(db.Text, nullable=False, unique=False)
-    meals = db.relationship('MealsIngredients', back_populates='ingredient')
+    meals = db.relationship('MealIngredient', back_populates='ingredient')
 
-class MealsIngredients(db.Model):
+class MealIngredient(db.Model):
     __tablename__ = 'meals_ingredients'
     id = db.mapped_column(db.Integer, primary_key=True)
     meal_id = db.mapped_column(db.ForeignKey('meals.id'))
@@ -92,33 +104,118 @@ def menu_index():
 
 @bp.post('/menus')
 @bp.response(201, MenuSchema)
-def create_menus():
+def create_menu():
     schema = MenuSchema()
     menu = schema.make_menu(request.json)
     db.session.add(menu)
     db.session.commit()
     return menu
 
-@bp.route("/menus/<int:menu_id>")
+@bp.put('/menus/<int:menu_id>')
 @bp.response(200, MenuSchema)
-def get_menu(menu_id):
+def update_menus(menu_id):
+    menu = Menu.query.get_or_404(menu_id)
+    menu.name = request.json['name']
+    db.session.add(menu)
+    db.session.commit()
+    return menu
+
+@bp.get("/menus/<int:menu_id>")
+@bp.response(200, MenuSchema)
+def read_menu(menu_id):
     return Menu.query.get_or_404(menu_id)
 
+# TODO: handle if menu has meals
+@bp.delete('/menus/<int:menu_id>')
+def delete_menu(menu_id):
+    menu = Menu.query.get_or_404(menu_id)
+    name = menu.name
+    db.session.delete(menu)
+    db.session.commit()
+    return {"message": f"menu {name} deleted."}
 
-@bp.route('/menus/<int:menu_id>/meals')
+@bp.get('/menus/<int:menu_id>/meals')
 @bp.response(200, MealSchema(many=True))
 def get_meals_for_menu(menu_id):
     menu = Menu.query.get_or_404(menu_id)
     return menu.meals
 
-@bp.route('/meals')
+@bp.put('/meals/<int:meal_id>/menus/<int:menu_id>')
+@bp.response(200, MealSchema)
+def add_meal_to_menu(meal_id, menu_id):
+    menu = Menu.query.get_or_404(menu_id)
+    meal = Meal.query.get_or_404(meal_id)
+    meal.menu_id = menu.id
+    db.session.add(meal)
+    db.session.commit()
+    return meal
+
+@bp.delete('/meals/<int:meal_id>/menus')
+@bp.response(200, MealSchema)
+def delete_meal_from_menu(meal_id):
+    meal = Meal.query.get_or_404(meal_id)
+    meal.menu_id = None
+    db.session.add(meal)
+    db.session.commit()
+    return meal
+
+# TODO: could probably have this take an array of ingredient_ids, then in the body,
+# do a foreach id -> make_meal_ingredient, etc.
+@bp.post('/meals-ingredients')
+@bp.response(201, MealIngredientSchema)
+def add_ingredient_to_meal():
+    schema = MealIngredientSchema()
+    meal_ingredient = schema.make_meal_ingredient(request.json)
+    db.session.add(meal_ingredient)
+    db.session.commit()
+    return meal_ingredient
+
+@bp.delete('/meals-ingredients')
+@bp.response(200, MealIngredientSchema)
+def delete_ingredient_from_meal():
+    #TODO: handle if these are not present
+    meal_id = request.json['meal_id']
+    ingredient_id = request.json['ingredient_id']
+    try:
+        meal_ingredient = MealIngredient.query.where(MealIngredient.meal_id == meal_id).where(MealIngredient.ingredient_id == ingredient_id).one()
+        db.session.delete(meal_ingredient)    
+        db.session.commit()
+    except NoResultFound:
+        abort(404, message='not found')
+    return {"message": "deleted"}
+    
+    
+    
+
+@bp.get('/meals')
 @bp.response(200, MealSchema(many=True))
 def meal_index():
     return Meal.query.all()
 
-@bp.route('/meals/<int:meal_id>')
+# TODO handle eror if user posts in that is not a menu id
+# right now throws psycopg2.errors.ForeignKeyViolation:
+@bp.post('/meals')
+@bp.response(201, MealSchema)
+def create_meal():
+    schema = MealSchema()
+    meal = schema.make_meal(request.json)
+    db.session.add(meal)
+    db.session.commit()
+    return meal
+
+@bp.put('/meals/<int:meal_id>')
 @bp.response(200, MealSchema)
-def get_meal(meal_id):
+def update_meal(meal_id):
+    meal = Meal.query.get_or_404(meal_id)
+    meal.name = request.json['name']
+    db.session.add(meal)
+    db.session.commit()
+    return meal
+
+
+@bp.get('/meals/<int:meal_id>')
+@bp.response(200, MealSchema)
+def read_meal(meal_id):
     return Meal.query.get_or_404(meal_id)
 
 @bp.route('/meals/<int:meal_id>/ingredients')
