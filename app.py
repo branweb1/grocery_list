@@ -57,10 +57,6 @@ class SimpleIngredientSchema(Schema):
     quantity = fields.Decimal(places=2, dump_only=True)
     unit = fields.Str(dump_only=True)
 
-
-
-bp = Blueprint('Main', 'main')
-
 # TODO: clean these up..maybe don't used mapped_column?
 # this converts db row to objectn
 class Menu(db.Model):
@@ -101,7 +97,10 @@ class SimpleIngredient:
         self.quantity = quantity
         self.unit = unit
 
-#@bp.arguments(MenuSchema)
+# routes/controllers
+# TODO: split these up
+bp = Blueprint('Main', 'main')
+
 @bp.get('/ingredients')
 @bp.response(200, IngredientSchema(many=True))
 def ingredient_index():
@@ -129,7 +128,6 @@ def update_ingredient(ingredient_id):
     db.session.commit()
     return meal
 
-
 @bp.get('/ingredients/<int:ingredient_id>')
 @bp.response(200, IngredientSchema)
 def read_ingredient(ingredient_id):
@@ -143,7 +141,7 @@ def delete_ingredient(ingredient_id):
     db.session.commit()
     return {"message": "ingredient deleted"}
 
-
+# MENUS
 @bp.get('/menus')
 @bp.response(200, MenuSchema(many=True))
 def menu_index():
@@ -187,6 +185,7 @@ def get_meals_for_menu(menu_id):
     menu = Menu.query.get_or_404(menu_id)
     return menu.meals
 
+# MEALS
 @bp.put('/meals/<int:meal_id>/menus/<int:menu_id>')
 @bp.response(200, MealSchema)
 def add_meal_to_menu(meal_id, menu_id):
@@ -206,33 +205,6 @@ def delete_meal_from_menu(meal_id):
     db.session.commit()
     return meal
 
-# TODO: could probably have this take an array of ingredient_ids, then in the body,
-# do a foreach id -> make_meal_ingredient, etc.
-@bp.post('/meals-ingredients')
-@bp.response(201, MealIngredientSchema)
-def add_ingredient_to_meal():
-    schema = MealIngredientSchema()
-    meal_ingredient = schema.make_meal_ingredient(request.json)
-    db.session.add(meal_ingredient)
-    db.session.commit()
-    return meal_ingredient
-
-@bp.delete('/meals-ingredients')
-@bp.response(200, MealIngredientSchema)
-def delete_ingredient_from_meal():
-    #TODO: handle if these are not present
-    meal_id = request.json['meal_id']
-    ingredient_id = request.json['ingredient_id']
-    try:
-        meal_ingredient = MealIngredient.query.where(MealIngredient.meal_id == meal_id).where(MealIngredient.ingredient_id == ingredient_id).one()
-        db.session.delete(meal_ingredient)    
-        db.session.commit()
-    except NoResultFound:
-        abort(404, message='not found')
-    return {"message": "deleted"}
-    
-    
-    
 
 @bp.get('/meals')
 @bp.response(200, MealSchema(many=True))
@@ -281,33 +253,30 @@ def get_ingredients_for_meal(meal_id):
         )
     return simple_ingredients
 
-# CRUD menu--would just be the name
-# get /menu all menus
-# post /menu create new menu
-# get /menu/<id> view menu
-# put /menu/<id> edit menu
-# delete /menu/<id> delete given menu
+# MEALS/INGREDIENTS (MANY TO MANY)
+# TODO: could probably have this take an array of ingredient_ids, then in the body,
+# do a foreach id -> make_meal_ingredient, etc.
+@bp.post('/meals-ingredients')
+@bp.response(201, MealIngredientSchema)
+def add_ingredient_to_meal():
+    schema = MealIngredientSchema()
+    meal_ingredient = schema.make_meal_ingredient(request.json)
+    db.session.add(meal_ingredient)
+    db.session.commit()
+    return meal_ingredient
 
-# CRUD meals
-# CRUD ingredients
-# associate ingredient with a meal
-# supply ingredient quantity
-# associate meal with a menu
-
-# so basically find out how to do crud ops on one-to-many (menu:meals), then many-to-many (meals:ingredients)
-
-# GET /menus/<id>/meal see meals on a menu
-# PUT  /meals/<id>/menus/<id> add a meal to a menu
-# DELETE /meals/<id>/menus remove a meal from a menu
-
-# TODO: how to do multiple? Could we just take an array of ingredient ids?
-# POST /meals-ingredients with body {meal_id: <id>, ingredient_id: <id> }
-# DELETE /meals-ingredients with body {meal_id: <id>, ingredient_id: <id> }
-# GET is still /meals/<id>/ingredients
-
-
-# Get menu
-# get meal
-# add and commit to db
+@bp.delete('/meals-ingredients')
+@bp.response(200, MealIngredientSchema)
+def delete_ingredient_from_meal():
+    #TODO: handle if these are not present
+    meal_id = request.json['meal_id']
+    ingredient_id = request.json['ingredient_id']
+    try:
+        meal_ingredient = MealIngredient.query.where(MealIngredient.meal_id == meal_id).where(MealIngredient.ingredient_id == ingredient_id).one()
+        db.session.delete(meal_ingredient)    
+        db.session.commit()
+    except NoResultFound:
+        abort(404, message='not found')
+    return {"message": "deleted"}
 
 app.register_blueprint(bp)
