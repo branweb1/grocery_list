@@ -3,7 +3,7 @@ const path = require('path');
 module.exports = {
   mode: 'development',
   devServer: {
-    port: 3000
+    port: 3000,
     hot: true,
     liveReload: true
   },
@@ -24,6 +24,19 @@ module.exports = {
             presets: ["@babel/preset-env", "@babel/preset-react"]
           }
         }
+      },
+      {
+        test: /\.css$/,
+        use: [
+          'style-loader',
+          {
+            loader: 'css-loader',
+            options: {
+              importLoaders: 1,
+              modules: true
+            }
+          }
+        ]
       }
     ]
   }
