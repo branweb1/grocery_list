@@ -5,7 +5,19 @@ module.exports = {
   devServer: {
     port: 3000,
     hot: true,
-    liveReload: true
+    liveReload: true,
+    proxy: {
+          '/api': {
+             target: {
+                host: "0.0.0.0",
+                protocol: 'http:',
+                port: 5000
+             },
+             pathRewrite: {
+                '^/api': ''
+             }
+          }
+       }
   },
   entry: path.resolve(__dirname, 'src', 'index.js'),
   output: {
