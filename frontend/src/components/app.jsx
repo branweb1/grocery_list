@@ -36,17 +36,45 @@ async function fetchMealsForMenu(menuId) {
   return meals
 }
 
+async function fetchMeals() {
+  const response = await fetch('http://localhost:3000/api/meals');
+  const meals = await response.json();
+  return meals;
+}
+
+function addMealToMenus(mealId, menuId) {
+  // put to meals/${mealId}/menus/${menuId}
+}
+
 function Foo() {
   const { menuId } = useParams();
   const [meals, setMeals] = useState([]);
+  const [allMeals, setAllMeals] = useState([]);
+
+  const handleClick = (meal) => {
+    console.log('mealname', meal)
+    console.log('updating meals')
+    setMeals(meals => [...meals, meal]);
+  }
+
+  useEffect(() => {
+    fetchMeals().then(meals => setAllMeals(meals));
+  }, []);
+
   useEffect(() => {
     fetchMealsForMenu(menuId).then(meals => setMeals(meals))
   }, []);
 
   return (
-    <ul>
-      {meals.map(meal => <li>{meal.name}</li>)}
-    </ul>
+    <div>
+      <ul>
+        {meals.map(meal => <li key={meal.id}>{meal.name}</li>)}
+      </ul>
+      <hr/>
+      <ul>
+        {allMeals.map(meal => <li key={`${meal.id}-foo`} onClick={() => handleClick(meal)}>HEY{meal.name}</li>)}
+      </ul>
+    </div>
   );
 }
 
