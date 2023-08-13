@@ -114,7 +114,7 @@ function Modal({mealId}) {
     <div>
       <div className={styles.modal}>
         <ul>
-          {ingredients.map(i => <li key={i.id}>{i.name}</li>)}
+          {ingredients.map(i => <li key={i.id}>{i.name} {i.quantity} {i.unit}</li>)}
         </ul>
       </div>
       <div className={styles.modalOverlay}></div>
