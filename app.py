@@ -99,7 +99,8 @@ class SimpleIngredient:
 
 # routes/controllers
 # TODO: split these up
-bp = Blueprint('Main', 'main')
+bp = Blueprint('Api', 'api', url_prefix='/api/groceries/v1')
+
 
 @bp.get('/ingredients')
 @bp.response(200, IngredientSchema(many=True))
@@ -279,4 +280,14 @@ def delete_ingredient_from_meal():
         abort(404, message='not found')
     return {"message": "deleted"}
 
+
+from werkzeug.exceptions import HTTPException
+
+bp_two = Blueprint('Main', 'main', static_folder='frontend/public', static_url_path="/frontend/public")
+@bp_two.route('/', defaults={'path': ''})
+@bp_two.route('/<path:path>')
+def handle_thing(path):
+    return bp_two.send_static_file('index.html')
+
 app.register_blueprint(bp)
+app.register_blueprint(bp_two)
