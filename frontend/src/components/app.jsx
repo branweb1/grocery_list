@@ -100,26 +100,88 @@ async function fetchIngredientsForMeal(mealId) {
   return ingredients;
 }
 
+async function fetchAllIngredients() {
+  const response = await fetch('http://localhost:5000/api/groceries/v1/ingredients');
+  const ingredients = response.json();
+  return ingredients;
+}
+
 function Modal({mealId}) {
   if (!mealId) return;
 
   // TODO: generalize this
   const [ingredients, setIngredients] = useState([])
+  const [allIngredients, setAllIngredients] = useState([]);
 
   useEffect(() => {
     fetchIngredientsForMeal(mealId).then(ingredients => setIngredients(ingredients))
+  }, []);
+
+  useEffect(() => {
+    fetchAllIngredients().then(is => setAllIngredients(is.map(i => i.name)));
   }, []);
 
   return (
     <div>
       <div className={styles.modal}>
         <ul>
-          {ingredients.map(i => <li key={i.id}>{i.name} {i.quantity} {i.unit}</li>)}
+          {ingredients.map(i => <li key={`${i.id}-${i.name}`}>{i.name} {i.quantity} {i.unit}</li>)}
         </ul>
+        <AutoComplete suggestions={allIngredients}/>
       </div>
       <div className={styles.modalOverlay}></div>
     </div>
   );
+}
+
+function AutoComplete({suggestions}) {
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [filteredSuggestions, setFilteredSuggestions] = useState([]);
+  const [userInput, setUserInput] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  
+  const handleChange = (e) => {
+    const filtered = suggestions.filter(suggestion => suggestion.toLowerCase().startsWith(e.target.value.toLowerCase()));
+    setFilteredSuggestions(filtered)
+    setUserInput(e.target.value);
+    setShowSuggestions(true);
+  }
+
+  const handleClick = (e) => {
+    setUserInput(e.currentTarget.innerText);
+    setFilteredSuggestions([]);
+    setSelectedIndex(0);
+    setShowSuggestions(false);
+  }
+
+  const handleKeyDown =(e) => {
+    if (e.keyCode === 13) { // enter
+      setUserInput(filteredSuggestions[selectedIndex]);
+      setSelectedIndex(0);
+      setShowSuggestions(false)
+    } else if (e.keyCode === 38) { // up
+      if (selectedIndex > 0) {
+        setSelectedIndex(si => si - 1);
+      }
+    } else if (e.keyCode === 40) { // down
+      if (selectedIndex < filteredSuggestions.length - 1) {
+        setSelectedIndex(si => si + 1);
+      }
+    }
+  }
+
+  return (
+    <div>
+      <input type='text' onKeyDown={handleKeyDown} onChange={handleChange} value={userInput} />
+      {showSuggestions && userInput && filteredSuggestions.length ?
+       (<ul>
+          {filteredSuggestions.map((fs, idx) => {
+            const className = idx === selectedIndex ? styles.active : styles.inactive;
+            return <li key={`${fs}-${idx}`} className={className} onClick={handleClick}>{fs}</li>
+          })}
+        </ul>) : null}
+    </div>
+  )
 }
 
 export function App() {
@@ -130,3 +192,4 @@ export function App() {
     </Routes>
   </Router>);
 }
+
