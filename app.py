@@ -62,7 +62,7 @@ class SimpleIngredientSchema(Schema):
 class Menu(db.Model):
     __tablename__ = 'menus'
     id = db.mapped_column(db.Integer, primary_key=True)
-    name = db.Column(db.VARCHAR(3), nullable=False, unique=True)
+    name = db.Column(db.Text, nullable=False, unique=True)
     meals = db.relationship('Meal', back_populates='menu', lazy='dynamic')
 
 class Meal(db.Model):

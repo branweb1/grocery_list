@@ -8,24 +8,67 @@ async function fetchMenus() {
   return menus;
 }
 
+async function deleteMenu(menuId) {
+  return await fetch(`http://localhost:5000/api/groceries/v1/menus/${menuId}`, {method: 'DELETE'});
+}
+
 function Home() {
   const [menus, setMenus] = useState([]);
+  const [textBoxes, setTextBoxes] = useState(0);
+  const [values, setValues] = useState([]);
+
   useEffect(() => {
     fetchMenus().then(menus => {
       setMenus(menus);
     });
   }, []);
 
+  const handleClick = (menuId) => {
+    if (window.confirm('are you sure?')) {
+      deleteMenu(menuId).then(() => setMenus(menus => menus.filter(m => m.id !== menuId)));
+    }
+  }
+
+  const handleChange = (idx, e) => {
+    const x = [...values]
+    x[idx] = e.target.value;
+    setValues(x);
+  }
+
+  const handleAddClick = () => {
+    setTextBoxes(tbs => tbs + 1);
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    console.log(values)
+    fetch('http://localhost:5000/api/groceries/v1/menus', {headers: {"Content-Type": "application/json"}, method: 'POST', body: JSON.stringify({name: values[0]})}).then(r => r.json()).then(b => setMenus(menus => [...menus, b])).catch(e => console.error(e))
+  }
+
   return (
     <div className={styles.container}>
       <header>
         <h3>Grocery List</h3>
-        <ul>
-          {menus.map(menu => {
-            return <Link to={`http://localhost:5000/menus/${menu.id}/meals`}><li>{menu.name}</li></Link>
-          })}
-        </ul>
       </header>
+      <ul>
+        {menus.map(menu => {
+          return (
+            <li>
+              <Link to={`http://localhost:5000/menus/${menu.id}/meals`}>
+                {menu.name}
+              </Link>
+              <button onClick={() => handleClick(menu.id)}>delete</button>
+            </li>
+          )
+        })}
+      </ul>
+      <button onClick={handleAddClick}>add</button>
+      <form onSubmit={handleSubmit}>
+        {[...Array(textBoxes).keys()].map(idx => {
+          return <input name={`new-menu-${idx}`} key={`asdf-${idx}`} value={values[idx] || ''} onChange={(e) => handleChange(idx, e)} type="text"/>
+        })}
+        <input type="submit" value="save"/>
+      </form>
     </div>
   );
 }
