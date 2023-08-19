@@ -57,6 +57,9 @@ class SimpleIngredientSchema(Schema):
     quantity = fields.Decimal(places=2, dump_only=True)
     unit = fields.Str(dump_only=True)
 
+class CategorySchema(Schema):
+    categories = fields.List(fields.Str)
+
 # TODO: clean these up..maybe don't used mapped_column?
 # this converts db row to objectn
 class Menu(db.Model):
@@ -107,7 +110,7 @@ bp = Blueprint('Api', 'api', url_prefix='/api/groceries/v1')
 def ingredient_index():
     return Ingredient.query.all()
 
-# TODO handle eror if user posts in that is not a menu id
+# TODO handle eror if user posts id that is not a menu id
 # right now throws psycopg2.errors.ForeignKeyViolation:
 @bp.post('/ingredients')
 @bp.response(201, IngredientSchema)
@@ -133,6 +136,23 @@ def update_ingredient(ingredient_id):
 @bp.response(200, IngredientSchema)
 def read_ingredient(ingredient_id):
     return Ingredient.query.get_or_404(ingredient_id)
+
+@bp.get('/ingredients/categories')
+def get_categories():
+    results = Ingredient.query.distinct(Ingredient.category).all()
+    categories = []
+    for result in results:
+        categories.append(result.category)
+    return categories, 200
+
+@bp.get('/ingredients/units')
+def get_units():
+    results = Ingredient.query.distinct(Ingredient.unit).filter(Ingredient.unit != None, Ingredient.unit != '').all()
+    units = []
+    for result in results:
+        units.append(result.unit)
+    return units, 200
+
 
 @bp.delete('/ingredients/<int:ingredient_id>')
 @bp.response(200)
