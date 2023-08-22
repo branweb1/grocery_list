@@ -161,6 +161,7 @@ function Foo() {
         {allMeals.map(meal => <li key={`${meal.id}-foo`} onClick={() => handleClick(meal)}>{meal.name}</li>)}
       </ul>
       <button onClick={handleAddMeal}>new meal</button>
+      <a href={`http://localhost:5000/api/groceries/v1/menus/${menuId}/shopping_list`}>download with a tag</a>
       {modal && <Modal>{getModalBody(currentMeal)}</Modal> }
     </div>
   );

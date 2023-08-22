@@ -1,8 +1,9 @@
-from flask import Flask, request
+from flask import Flask, request, send_from_directory
 from flask_smorest import Blueprint, abort
 from marshmallow import Schema, fields, post_load
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.exc import NoResultFound
+from sqlalchemy import text
 
 db = SQLAlchemy()
 
@@ -12,8 +13,9 @@ app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql+psycopg2://branweb@localhost
 
 db.init_app(app)
 
-# this (de)serializes an object into json
+# TODO: add a print feature...you'd need to run the raw sql query, then integrate that old python script to put it into a word doc, then stream that doc
 
+# this (de)serializes an object into json
 class IngredientSchema(Schema):
     id = fields.Int(dump_only=True)
     name = fields.Str(required=True)
@@ -206,6 +208,34 @@ def get_meals_for_menu(menu_id):
     menu = Menu.query.get_or_404(menu_id)
     return menu.meals
 
+@bp.get('/menus/<int:menu_id>/shopping_list')
+def get_shopping_list(menu_id):
+    menu = Menu.query.get_or_404(menu_id)
+    # TODO include stuff common to all menus? Or maybe make that an option
+    sections = db.session.execute(text(
+        "with foo as (select i.category,i.name,i.unit,sum(mi.quantity) as qty from meals_ingredients mi join meals m on m.id = mi.meal_id join ingredients i on i.id = mi.ingredient_id where m.menu_id = :val group by i.category, i.name, i.unit) select json_build_object('category', category, 'items', json_agg(json_build_object('name', name, 'quantity', qty, 'unit', unit))) from foo group by foo.category"
+    ), {"val": menu_id})
+
+    with open('public/shopping_list.txt', 'w') as outfile:
+        outfile.write(f"MENU {menu.name}\n")
+        for section_list in sections:
+            section = section_list[0]
+
+            outfile.write(f"{section['category']}\n")
+            outfile.write("------------\n")
+
+            for item in section['items']:
+                if item['quantity'] is None:
+                    outfile.write(f"{item['name']}\n")
+                else:
+                    unit = item['unit'] or ''
+                    if unit:
+                        unit = f" {unit}"
+                    outfile.write(f"{item['name']} - {item['quantity']}{unit}\n")
+
+            outfile.write('\n\n')
+    return send_from_directory('public', 'shopping_list.txt', as_attachment=True), 200
+
 # MEALS
 @bp.put('/meals/<int:meal_id>/menus/<int:menu_id>')
 @bp.response(200, MealSchema)
@@ -299,7 +329,6 @@ def delete_ingredient_from_meal():
     except NoResultFound:
         abort(404, message='not found')
     return {"message": "deleted"}
-
 
 from werkzeug.exceptions import HTTPException
 
