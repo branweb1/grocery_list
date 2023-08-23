@@ -1,79 +1,14 @@
 import React, {useState, useEffect} from "react";
 import styles from './app.css';
-import { BrowserRouter as Router, Routes, Route, Link, useParams } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, useParams, Outlet } from 'react-router-dom';
+import { Menus } from './menus.jsx';
 
-async function fetchMenus() {
-  const response = await fetch('http://localhost:5000/api/groceries/v1/menus');
-  const menus = await response.json();
-  return menus;
+async function fetchMenu(menuId) {
+  return await fetch(`http://localhost:5000/api/groceries/v1/menus/${menuId}`).then(r => r.json())
 }
 
 async function deleteMenu(menuId) {
   return await fetch(`http://localhost:5000/api/groceries/v1/menus/${menuId}`, {method: 'DELETE'});
-}
-
-function Home() {
-  const [menus, setMenus] = useState([]);
-  const [textBoxes, setTextBoxes] = useState(0);
-  const [values, setValues] = useState([]);
-
-  useEffect(() => {
-    fetchMenus().then(menus => {
-      setMenus(menus);
-    });
-  }, []);
-
-  const handleClick = (menuId) => {
-    if (window.confirm('are you sure?')) {
-      deleteMenu(menuId).then(() => setMenus(menus => menus.filter(m => m.id !== menuId)));
-    }
-  }
-
-  const handleChange = (idx, e) => {
-    const x = [...values]
-    x[idx] = e.target.value;
-    setValues(x);
-  }
-
-  const handleAddClick = () => {
-    setTextBoxes(tbs => tbs + 1);
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log(values)
-    fetch('http://localhost:5000/api/groceries/v1/menus', {headers: {"Content-Type": "application/json"}, method: 'POST', body: JSON.stringify({name: values[0]})}).then(r => r.json()).then(b => setMenus(menus => [...menus, b])).then(() => {
-      setValues([]);
-      setTextBoxes(0)
-    }).catch(e => console.error(e))
-  }
-
-  return (
-    <div className={styles.container}>
-      <header>
-        <h3>Grocery List</h3>
-      </header>
-      <ul>
-        {menus.map(menu => {
-          return (
-            <li>
-              <Link to={`http://localhost:5000/menus/${menu.id}/meals`}>
-                {menu.name}
-              </Link>
-              <button onClick={() => handleClick(menu.id)}>delete</button>
-            </li>
-          )
-        })}
-      </ul>
-      <button onClick={handleAddClick}>add</button>
-      <form onSubmit={handleSubmit}>
-        {[...Array(textBoxes).keys()].map(idx => {
-          return <input name={`new-menu-${idx}`} key={`asdf-${idx}`} value={values[idx] || ''} onChange={(e) => handleChange(idx, e)} type="text"/>
-        })}
-        <input type="submit" value="save"/>
-      </form>
-    </div>
-  );
 }
 
 async function fetchMealsForMenu(menuId) {
@@ -88,21 +23,48 @@ async function fetchMeals() {
   return meals;
 }
 
-function addMealToMenus(mealId, menuId) {
-  // put to meals/${mealId}/menus/${menuId}
+function Home() {
+  return (
+    <div className={styles.container}>
+      <header>
+        <h3>Grocery List</h3>
+      </header>
+      <Outlet />
+    </div>
+  );
 }
 
-function Foo() {
+// function addMealToMenus(mealId, menuId) {
+//   // put to meals/${mealId}/menus/${menuId}
+// }
+
+function Menu() {
   const { menuId } = useParams();
   const [meals, setMeals] = useState([]);
   const [allMeals, setAllMeals] = useState([]);
+  const [filteredMeals, setFilteredMeals] = useState([]);
   const [modal, toggleModal] = useState(false);
   const [currentMeal, setCurrentMeal] = useState(null);
   const [modalPage, setModalPage] = useState('');
+  const [menu, setMenu] = useState(null);
 
   const handleClick = (meal) => {
     setMeals(meals => [...meals, meal]);
     setAllMeals(allMeals => allMeals.filter(m => m.id !== meal.id))
+    return fetch(
+      `http://localhost:5000/api/groceries/v1/meals/${meal.id}/menus/${menuId}`,
+      {method: 'PUT'}
+    )
+  }
+
+  const handleFilterMenus = (e) => {
+    if (!e.target.value) {
+      setFilteredMeals(allMeals);
+    } else {
+      setFilteredMeals(filteredMeals.filter(meal =>
+        meal.name.toLowerCase().startsWith(e.target.value.toLowerCase()))
+      );
+    }
   }
 
   const handleDeleteClick = (meal) => {
@@ -134,34 +96,56 @@ function Foo() {
   }
 
   useEffect(() => {
+    fetchMenu(menuId).then(menu => setMenu(menu));
+  }, []);
+
+  useEffect(() => {
     Promise.all([fetchMeals(), fetchMealsForMenu(menuId)]).then(xs => {
       const [meals, mealsForMenu] = xs;
       const menuMealIds = mealsForMenu.map(m => m.id);
-      setAllMeals(meals.filter(m => !menuMealIds.includes(m.id)))
+      const mealsNotOnMenu = meals
+            .filter(m => !menuMealIds.includes(m.id))
+            .sort((a,b) => {
+              if(a.name < b.name) {
+                return -1;
+              } else if (a.name > b.name) {
+                return 1;
+              } else {
+                return 0;
+              }
+            });
+      setAllMeals(mealsNotOnMenu);
+      setFilteredMeals(mealsNotOnMenu);
       setMeals(mealsForMenu)
     })
   }, []);
 
-  const handleSave = () => {
-    const calls = meals.map(meal => fetch(`http://localhost:5000/api/groceries/v1/meals/${meal.id}/menus/${menuId}`, {method: 'PUT'}))
-    return Promise.all(calls).then(r => console.log(r))
-  }
-
   return (
-    <div>
-      <ul>
-        {meals.map(meal => <li key={meal.id}>
-                             <a href="#" onClick={() => handleToggleModal(meal.id)}>{meal.name}</a>
-                             <button onClick={() => handleDeleteClick(meal)}>delete</button>
-                           </li>)}
-      </ul>
-      <button onClick={handleSave}>save</button>
-      <hr/>
-      <ul>
-        {allMeals.map(meal => <li key={`${meal.id}-foo`} onClick={() => handleClick(meal)}>{meal.name}</li>)}
-      </ul>
-      <button onClick={handleAddMeal}>new meal</button>
-      <a href={`http://localhost:5000/api/groceries/v1/menus/${menuId}/shopping_list`}>download with a tag</a>
+     <div className={styles.menu}>
+       { menu && <h5 className="subheader">{`Menu ${menu.name}`}</h5>}
+       <a href={`http://localhost:5000/api/groceries/v1/menus/${menuId}/shopping_list`}>
+       <button>Download Shopping List</button>
+       </a>
+       <div className={styles.foo}>
+       <section>
+         {!!meals.length ? <ul>
+           {meals.map(meal =>
+             <li key={meal.id}>
+               <a href="#" onClick={() => handleToggleModal(meal.id)}>{meal.name}</a>
+               <button onClick={() => handleDeleteClick(meal)}>delete</button>
+             </li>
+           )}
+            </ul> : <div>No meals in this menu yet.</div>}
+       </section>
+       <section>
+         <button className={styles.newMealButton} onClick={handleAddMeal}>+ Add New Meal</button>
+         <label className={styles.filterLabel} for="menu-filter">filter meals:</label>
+         <input name="menu-filter" type="text" onChange={handleFilterMenus}/>
+         <ul className={styles.mealsList}>
+          {filteredMeals.map(meal => <li key={`${meal.id}-foo`} onClick={() => handleClick(meal)}>{meal.name}</li>)}
+         </ul>
+      </section>
+         </div>
       {modal && <Modal>{getModalBody(currentMeal)}</Modal> }
     </div>
   );
@@ -418,12 +402,40 @@ function AutoComplete({suggestions, onChange}) {
   )
 }
 
-export function App() {
-  return (<Router>
-    <Routes>
-      <Route path="/" element={<Home/>}/>
-      <Route path="/menus/:menuId/meals" element={<Foo />} />
-    </Routes>
-  </Router>);
+function Test() {
+  return (<div>hi<Outlet/></div>)
 }
+
+function Subpage() {
+  return (<div>i am the subpage</div>);
+}
+
+// export function App() {
+//   return (
+//     <Router>
+//       <Routes>
+//         <Route path="/" element={<Menus/>}/>
+//         <Route path="/test" element={<Test />}>
+//           <Route path="subpage" element={<Subpage />}/>
+//         </Route>
+//         <Route path="/menus/:menuId/meals" element={<Foo />} />
+//       </Routes>
+//     </Router>
+//   );
+//}
+
+export function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<Home/>}>
+          <Route path="/" element={<Menus/>}/>
+          <Route path="menus/:menuId/meals" element={<Menu/>} />
+        </Route>  
+      </Routes>
+    </Router>
+  );
+}
+
+
 
