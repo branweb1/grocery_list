@@ -6,6 +6,7 @@
   width: 90%;
   max-width: 910px;
   margin: 0 auto;
+  padding-bottom: 50px;
 }
 
 .container h3 {
@@ -45,6 +46,7 @@
 }
 
 
+/* modal */
 .modal {
   position: fixed;
   top: 50%;
@@ -55,7 +57,26 @@
   height: 400px;
   max-height: 100%;
   z-index: 1010;
-  background-color: blue;
+  padding: 20px;
+  background-color: #FFF;
+}
+
+.modalCloseButton,
+.closeButton {
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.modalCloseButton {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+
+.closeButton:hover {
+  color: red;
 }
 
 .modalOverlay {
@@ -68,6 +89,29 @@
   background-color: rgba(0, 0, 0, 0.6);
 }
 
+
+/* new meal modal */
+.newMealForm label,
+.newMealForm input
+ {
+  display: inline-block;
+  width: 45%;
+}
+
+.newMealForm span
+ {
+  display: inline-block;
+  width: 45%;
+}
+
+
+.autoCompleteContainer {
+  display: inline-block;
+}
+
+.autoCompleteContainer input {
+  width: 100%;
+}
 
 .active {
   color: red;

@@ -23,6 +23,13 @@ async function fetchMeals() {
   return meals;
 }
 
+async function deleteMealFromMenu(mealId) {
+  const response = await fetch(`http://localhost:5000/api/groceries/v1/meals/${mealId}/menus`, {method: 'DELETE'});
+  const wut = await response.json();
+  console.log(wut)
+  return wut;
+}
+
 function Home() {
   return (
     <div className={styles.container}>
@@ -42,52 +49,94 @@ function Menu() {
   const { menuId } = useParams();
   const [meals, setMeals] = useState([]);
   const [allMeals, setAllMeals] = useState([]);
-  const [filteredMeals, setFilteredMeals] = useState([]);
-  const [modal, toggleModal] = useState(false);
+  const [modal, showModal] = useState(false);
   const [currentMeal, setCurrentMeal] = useState(null);
   const [modalPage, setModalPage] = useState('');
   const [menu, setMenu] = useState(null);
+  const [menuFilter, setMenuFilter] = useState('');
 
-  const handleClick = (meal) => {
-    setMeals(meals => [...meals, meal]);
-    setAllMeals(allMeals => allMeals.filter(m => m.id !== meal.id))
+  useEffect(() => {
+    fetchMenu(menuId).then(menu => setMenu(menu));
+  }, []);
+
+  useEffect(() => {
+    Promise.all([fetchMeals(), fetchMealsForMenu(menuId)]).then(results => {
+      const [allMeals, meals] = results;
+      setAllMeals(allMeals); // sort? We only care for display purposes so why not just do it there
+      setMeals(meals)
+    })
+  }, []);
+
+  const handleMealClick = (meal) => {
     return fetch(
       `http://localhost:5000/api/groceries/v1/meals/${meal.id}/menus/${menuId}`,
       {method: 'PUT'}
-    )
+    ).then(() => {
+      setMeals(meals => [...meals, meal]);
+      setAllMeals(allMeals => allMeals.filter(m => m.id !== meal.id))
+    })
   }
 
-  const handleFilterMenus = (e) => {
-    if (!e.target.value) {
-      setFilteredMeals(allMeals);
-    } else {
-      setFilteredMeals(filteredMeals.filter(meal =>
-        meal.name.toLowerCase().startsWith(e.target.value.toLowerCase()))
-      );
+  const displayAllMeals = () => {
+    let mealsNotOnMenu = getMealsNotOnMenu(allMeals, meals);
+    if (menuFilter) {
+      mealsNotOnMenu = mealsNotOnMenu.filter(meal =>
+        meal.name.toLowerCase().startsWith(menuFilter.toLowerCase()));
     }
+    return mealsNotOnMenu;
   }
 
+  const handleFilterChange = (e) => {
+    setMenuFilter(e.target.value);
+  }
+
+  // TODO: this just breaks the association. We propbably want to be able to actually delete meals too
   const handleDeleteClick = (meal) => {
-    setMeals(meals.filter(m => m.id !== meal.id));
-    setAllMeals([...allMeals, meal]);
+    deleteMealFromMenu(meal.id).then(() => {
+      setMeals(meals.filter(m => m.id !== meal.id));
+//      setAllMeals(am => [...am]);
+    });
   }
 
   const handleToggleModal = (mealId) => {
     setCurrentMeal(mealId);
     setModalPage('existingMeal');
-    toggleModal(true);
+    showModal(true);
   }
+
+  const handleCloseClick = () => showModal(false);
 
   const handleAddMeal = () => {
     setModalPage('newMeal');
-    toggleModal(true);
-    
+    showModal(true); 
+  }
+
+  const getMealsNotOnMenu = (allMeals, mealsOnMenu) => {
+    const menuMealIds = mealsOnMenu.map(m => m.id);
+    // TODO: case insensitive?
+    return allMeals
+      .filter(m => !menuMealIds.includes(m.id))
+      .sort((a,b) => {
+        if(a.name < b.name) {
+          return -1;
+        } else if (a.name > b.name) {
+          return 1;
+        } else {
+          return 0;
+        }
+      });
   }
 
   const getModalBody = (mealId) => {
     switch(modalPage) {
       case 'newMeal':
-        return (<OtherModalBody menuId={menuId}/>);
+        return (
+          <OtherModalBody
+            menuId={menuId}
+            closeModal={() => showModal(false)}
+            setAllMeals={setAllMeals}
+          />
+        );
       case 'existingMeal':
         return (<ModalBody mealId={mealId}/>);
       default:
@@ -95,30 +144,6 @@ function Menu() {
     }
   }
 
-  useEffect(() => {
-    fetchMenu(menuId).then(menu => setMenu(menu));
-  }, []);
-
-  useEffect(() => {
-    Promise.all([fetchMeals(), fetchMealsForMenu(menuId)]).then(xs => {
-      const [meals, mealsForMenu] = xs;
-      const menuMealIds = mealsForMenu.map(m => m.id);
-      const mealsNotOnMenu = meals
-            .filter(m => !menuMealIds.includes(m.id))
-            .sort((a,b) => {
-              if(a.name < b.name) {
-                return -1;
-              } else if (a.name > b.name) {
-                return 1;
-              } else {
-                return 0;
-              }
-            });
-      setAllMeals(mealsNotOnMenu);
-      setFilteredMeals(mealsNotOnMenu);
-      setMeals(mealsForMenu)
-    })
-  }, []);
 
   return (
      <div className={styles.menu}>
@@ -132,21 +157,24 @@ function Menu() {
            {meals.map(meal =>
              <li key={meal.id}>
                <a href="#" onClick={() => handleToggleModal(meal.id)}>{meal.name}</a>
-               <button onClick={() => handleDeleteClick(meal)}>delete</button>
+               <button className={styles.closeButton} onClick={() => handleDeleteClick(meal)}>[X]</button>
              </li>
            )}
             </ul> : <div>No meals in this menu yet.</div>}
        </section>
        <section>
          <button className={styles.newMealButton} onClick={handleAddMeal}>+ Add New Meal</button>
-         <label className={styles.filterLabel} for="menu-filter">filter meals:</label>
-         <input name="menu-filter" type="text" onChange={handleFilterMenus}/>
+         <label className={styles.filterLabel} htmlFor="menu-filter">filter meals:</label>
+         <input name="menu-filter" type="text" onChange={handleFilterChange}/>
          <ul className={styles.mealsList}>
-          {filteredMeals.map(meal => <li key={`${meal.id}-foo`} onClick={() => handleClick(meal)}>{meal.name}</li>)}
+          {displayAllMeals().map(meal =>
+            <li key={`${meal.id}-foo`} onClick={() => handleMealClick(meal)}>
+              {meal.name}
+            </li>)}
          </ul>
       </section>
          </div>
-      {modal && <Modal>{getModalBody(currentMeal)}</Modal> }
+      {modal && <Modal onCloseClick={handleCloseClick}>{getModalBody(currentMeal)}</Modal> }
     </div>
   );
 }
@@ -190,16 +218,16 @@ function ModalBody({mealId}) {
     fetchAllIngredients().then(is => setAllIngredients(is.map(i => i.name)));
   }, []);
 
+  // TODO: make these editable
   return (<div>
     <ul>
       {ingredients.map(i => <li key={`${i.id}-${i.name}`}>{i.name} {i.quantity} {i.unit}</li>)}
     </ul>
-    <AutoComplete suggestions={allIngredients}/>
   </div>);
 }
 
-function OtherModalBody({menuId}) {
-  const [textBoxes, setTextBoxes] = useState(0);
+function OtherModalBody({menuId, closeModal, setAllMeals}) {
+  const [textBoxes, setTextBoxes] = useState(1);
   const [values, setValues] = useState([]);
   const [allIngredients, setAllIngredients] = useState([]);
   const [ingredientIdMap, setIngredientIdMap] = useState([]);
@@ -211,7 +239,7 @@ function OtherModalBody({menuId}) {
     fetchAllIngredients().then(is => {
       setAllIngredients(is.map(i => i.name));
       setIngredientIdMap(is.reduce((acc, i) => {
-        return Object.assign(acc, {[i.name]: i.id});
+        return {...acc, [i.name]: i.id}
       }, {}))
     });
   }, []);
@@ -229,16 +257,16 @@ function OtherModalBody({menuId}) {
   };
 
   const handleChange = (idx, value, field) => {
-    const x = [...values]
-    const item = x[idx];
+    const ingredients = [...values]
+    const item = ingredients[idx];
     if (item) {
-      x[idx] = {...item, [field]: value};
+      ingredients[idx] = {...item, [field]: value};
     } else {
-      const foo = {};
-      foo[field] = value;
-      x[idx] = foo;
+      const ingredient = {};
+      ingredient[field] = value;
+      ingredients[idx] = ingredient;
     }
-    setValues(x);
+    setValues(ingredients);
   }
 
   const handleSubmit = (e) => {
@@ -248,11 +276,13 @@ function OtherModalBody({menuId}) {
       {
         method: 'POST',
         headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({menu_id: menuId, name: mealName})
+        body: JSON.stringify({name: mealName})
       }
     ).then(r => r.json())
-      .then(meal => ({meal_id: meal.id}))
-      .then(x => {
+      .then(meal => {
+        return meal
+      })
+      .then(meal => {
         const calls = values.map(value => {
           if (!ingredientIdMap[value.name]) {
             const { quantity, ...rest} = value
@@ -271,13 +301,14 @@ function OtherModalBody({menuId}) {
                   {
                     method: 'POST',
                     headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify({meal_id: x.meal_id, ...thing})
+                    body: JSON.stringify({meal_id: meal.id, ...thing})
                   }
-                )
-              }).then(r => r.json()).then(b => {
+                );
+              }).then(() => {
                 setValues([]);
-                setTextBoxes(0);
-                // prob close modal
+                setTextBoxes(1);
+                closeModal();
+                setAllMeals(meals => [...meals, meal]);
               })
           } else {
             return null
@@ -304,25 +335,30 @@ function OtherModalBody({menuId}) {
   return (
     <div>
       <button onClick={handleAddClick}>add</button>
-      <div>
+      <div className={styles.newMealForm}>
+        <label htmlFor="meal-name">Meal Name</label>
+        <input name="meal-name" value={mealName} onChange={handleMealChange} type="text"/>
         {[...Array(textBoxes).keys()].map(idx => {
           return (
             <div>
-              <input name="meal-name" value={mealName} onChange={handleMealChange} type="text"/>
+              <label htmlFor={`new-ingredient-name-${idx}`}>Ingredient Name</label>
               <AutoComplete
                 suggestions={allIngredients}
                 onChange={e => handleChange(idx, e, 'name')}
                 name={`new-ingredient-name-${idx}`}/>
+              <label htmlFor={`new-ingredient-quantity-${idx}`}>Quantity</label>
               <input
                 name={`new-ingredient-quantity-${idx}`}
                 key={`new-ingredient-quantity-${idx}`}
                 value={getValue(idx, 'quantity')}
                 onChange={e => handleChange(idx, e.target.value, 'quantity')}
                 type="text"/>
+              <label htmlFor={`new-ingredient-unit-${idx}`}>Unit (optional)</label>
               <AutoComplete
                 suggestions={allUnits}
                 onChange={e => handleChange(idx, e, 'unit')}
                 name={`new-ingredient-unit-${idx}`}/>
+              <label htmlFor={`new-ingredient-category-${idx}`}>Category</label>
               <AutoComplete
                 suggestions={allCategories}
                 onChange={e => handleChange(idx, e, 'category')}
@@ -338,10 +374,11 @@ function OtherModalBody({menuId}) {
 
 
 
-function Modal({children}) {
+function Modal({children, onCloseClick}) {
   return (
     <div>
       <div className={styles.modal}>
+        <button className={styles.modalCloseButton} onClick={onCloseClick}>[X]</button>
         {children}
       </div>
       <div className={styles.modalOverlay}></div>
@@ -389,7 +426,7 @@ function AutoComplete({suggestions, onChange}) {
   }
 
   return (
-    <div>
+    <span className={styles.autoCompleteContainer}>
       <input type='text' name={name} onKeyDown={handleKeyDown} onChange={handleChange} value={userInput} />
       {showSuggestions && userInput && filteredSuggestions.length ?
        (<ul>
@@ -398,7 +435,7 @@ function AutoComplete({suggestions, onChange}) {
             return <li key={`${fs}-${idx}`} className={className} onClick={handleClick}>{fs}</li>
           })}
         </ul>) : null}
-    </div>
+    </span>
   )
 }
 
@@ -409,20 +446,6 @@ function Test() {
 function Subpage() {
   return (<div>i am the subpage</div>);
 }
-
-// export function App() {
-//   return (
-//     <Router>
-//       <Routes>
-//         <Route path="/" element={<Menus/>}/>
-//         <Route path="/test" element={<Test />}>
-//           <Route path="subpage" element={<Subpage />}/>
-//         </Route>
-//         <Route path="/menus/:menuId/meals" element={<Foo />} />
-//       </Routes>
-//     </Router>
-//   );
-//}
 
 export function App() {
   return (
