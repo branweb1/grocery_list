@@ -51,8 +51,8 @@ class MealIngredientSchema(Schema):
     ingredient_id = fields.Int(dump_only=True)
     
     @post_load
-    def make_meal_ingredient(self, data, **kwargs):
-        return MealIngredient(**data)
+    def make_meal_ingredient(self, meal_id, ingredient_id, quantity):
+        return MealIngredient(meal_id=meal_id, ingredient_id=ingredient_id, quantity=quantity)
 
 class SimpleIngredientSchema(Schema):
     name = fields.Str(dump_only=True)
@@ -122,6 +122,16 @@ def create_ingredient():
     db.session.add(ingredient)
     db.session.commit()
     return ingredient
+
+@bp.post('/ingredients/batch')
+@bp.response(201, IngredientSchema(many=True))
+def create_ingredient_batch():
+    schema = IngredientSchema()
+    ingredients = [schema.make_ingredient(item) for item in request.json]
+    for ingredient in ingredients:
+        db.session.add(ingredient)
+    db.session.commit()
+    return ingredients
 
 @bp.put('/ingredients/<int:ingredient_id>')
 @bp.response(200, IngredientSchema)
@@ -256,6 +266,13 @@ def delete_meal_from_menu(meal_id):
     db.session.commit()
     return meal
 
+@bp.delete('/meals/<int:meal_id>')
+def delete_meal(meal_id):
+    meal = Meal.query.get_or_404(meal_id)
+    name = meal.name
+    db.session.delete(meal)
+    db.session.commit()
+    return {"message": f"meal {name} deleted"}
 
 @bp.get('/meals')
 @bp.response(200, MealSchema(many=True))
@@ -309,12 +326,28 @@ def get_ingredients_for_meal(meal_id):
 # do a foreach id -> make_meal_ingredient, etc.
 @bp.post('/meals-ingredients')
 @bp.response(201, MealIngredientSchema)
-def add_ingredient_to_meal():
+def add_ingredients_to_meal():
     schema = MealIngredientSchema()
     meal_ingredient = schema.make_meal_ingredient(request.json)
     db.session.add(meal_ingredient)
     db.session.commit()
     return meal_ingredient
+
+@bp.post('/meals-ingredients/batch')
+@bp.response(201, MealIngredientSchema(many=True))
+def fake():
+    schema = MealIngredientSchema()
+    meal_id = request.json["meal_id"]
+    ingredients = request.json["ingredients"]
+    created = []
+    for ingredient in ingredients:
+        ingredient_id = ingredient["id"]
+        qty = ingredient["quantity"]
+        meal_ingredient = schema.make_meal_ingredient(meal_id, ingredient_id, qty)
+        created.append(meal_ingredient)
+        db.session.add(meal_ingredient)
+    db.session.commit()
+    return created
 
 @bp.delete('/meals-ingredients')
 @bp.response(200, MealIngredientSchema)

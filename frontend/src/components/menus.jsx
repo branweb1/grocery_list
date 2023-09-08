@@ -1,6 +1,11 @@
 import React, {useState, useEffect} from "react";
 import styles from './menus.css';
+import otherStyles from './app.css';
 import { Link } from 'react-router-dom';
+
+async function deleteMenu(menuId) {
+  return await fetch(`http://localhost:5000/api/groceries/v1/menus/${menuId}`, {method: 'DELETE'});
+}
 
 async function fetchMenus() {
   const response = await fetch('http://localhost:5000/api/groceries/v1/menus');
@@ -67,6 +72,11 @@ export function Menus() {
               <Link to={`http://localhost:5000/menus/${menu.id}/meals`}>
                 {menu.name}
               </Link>
+              <button
+                className={otherStyles.closeButton}
+                onClick={() => handleClick(menu.id)}>
+                [X]
+              </button>
             </li>
           )
         })}

@@ -7,10 +7,6 @@ async function fetchMenu(menuId) {
   return await fetch(`http://localhost:5000/api/groceries/v1/menus/${menuId}`).then(r => r.json())
 }
 
-async function deleteMenu(menuId) {
-  return await fetch(`http://localhost:5000/api/groceries/v1/menus/${menuId}`, {method: 'DELETE'});
-}
-
 async function fetchMealsForMenu(menuId) {
   const response = await fetch(`http://localhost:5000/api/groceries/v1/menus/${menuId}/meals`);
   const meals = await response.json();
@@ -25,16 +21,73 @@ async function fetchMeals() {
 
 async function deleteMealFromMenu(mealId) {
   const response = await fetch(`http://localhost:5000/api/groceries/v1/meals/${mealId}/menus`, {method: 'DELETE'});
-  const wut = await response.json();
-  console.log(wut)
-  return wut;
+  const msg = await response.json();
+  return msg;
+}
+
+async function deleteMeal(mealId) {
+  const response = await fetch(`http://localhost:5000/api/groceries/v1/meals/${mealId}`, {method: 'DELETE'});
+  const msg = await response.json();
+}
+
+async function createMeal(mealName) {
+  const meal = await fetch(
+    'http://localhost:5000/api/groceries/v1/meals',
+    {
+      method: 'POST',
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({name: mealName})
+    }).then(r => r.json());
+
+  return meal;
+}
+
+async function createIngredient(info) {
+  return fetch(
+    'http://localhost:5000/api/groceries/v1/ingredients',
+    {
+      method: 'POST',
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(info)
+    }).then(r => {
+      return r.json()
+    });
+}
+
+async function createIngredientsBatch(ingredients) {
+  if (ingredients.length < 1) {
+    return Promise.resolve([]);
+  }
+  return fetch(
+    'http://localhost:5000/api/groceries/v1/ingredients/batch',
+    {
+      method: 'POST',
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(ingredients)
+    }).then(r => {
+      return r.json()
+    });
+}
+
+async function addIngredientsToMeal(mealId, ingredients) {
+
+  return fetch(
+    'http://localhost:5000/api/groceries/v1/meals-ingredients/batch',
+    {
+      method: 'POST',
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({meal_id: mealId, ingredients})
+    }
+  ).then(r => r.json());
 }
 
 function Home() {
   return (
     <div className={styles.container}>
       <header>
-        <h3>Grocery List</h3>
+        <h3>
+          <Link to="http://localhost:5000">Grocery List</Link>
+        </h3>
       </header>
       <Outlet />
     </div>
@@ -47,8 +100,8 @@ function Home() {
 
 function Menu() {
   const { menuId } = useParams();
-  const [meals, setMeals] = useState([]);
-  const [allMeals, setAllMeals] = useState([]);
+  const [mealsOnMenu, setMealsOnMenu] = useState([]);
+  const [mealsNotOnMenu, setMealsNotOnMenu] = useState([]);
   const [modal, showModal] = useState(false);
   const [currentMeal, setCurrentMeal] = useState(null);
   const [modalPage, setModalPage] = useState('');
@@ -61,10 +114,12 @@ function Menu() {
 
   useEffect(() => {
     Promise.all([fetchMeals(), fetchMealsForMenu(menuId)]).then(results => {
-      const [allMeals, meals] = results;
-      setAllMeals(allMeals); // sort? We only care for display purposes so why not just do it there
-      setMeals(meals)
-    })
+      const [allMeals, mealsOnMenu] = results;
+      const menuMealIds = mealsOnMenu.map(m => m.id);
+      const mealsNotOnMenu = allMeals.filter(m => !menuMealIds.includes(m.id))
+      setMealsNotOnMenu(mealsNotOnMenu);
+      setMealsOnMenu(mealsOnMenu);
+    });
   }, []);
 
   const handleMealClick = (meal) => {
@@ -72,18 +127,18 @@ function Menu() {
       `http://localhost:5000/api/groceries/v1/meals/${meal.id}/menus/${menuId}`,
       {method: 'PUT'}
     ).then(() => {
-      setMeals(meals => [...meals, meal]);
-      setAllMeals(allMeals => allMeals.filter(m => m.id !== meal.id))
+      setMealsOnMenu(meals => [...meals, meal]);
+      setMealsNotOnMenu(mealsNotOnMenu => mealsNotOnMenu.filter(m => m.id !== meal.id))
     })
   }
 
   const displayAllMeals = () => {
-    let mealsNotOnMenu = getMealsNotOnMenu(allMeals, meals);
+    let x = mealsNotOnMenu;
     if (menuFilter) {
-      mealsNotOnMenu = mealsNotOnMenu.filter(meal =>
+      x = mealsNotOnMenu.filter(meal =>
         meal.name.toLowerCase().startsWith(menuFilter.toLowerCase()));
     }
-    return mealsNotOnMenu;
+    return x;
   }
 
   const handleFilterChange = (e) => {
@@ -93,9 +148,17 @@ function Menu() {
   // TODO: this just breaks the association. We propbably want to be able to actually delete meals too
   const handleDeleteClick = (meal) => {
     deleteMealFromMenu(meal.id).then(() => {
-      setMeals(meals.filter(m => m.id !== meal.id));
-//      setAllMeals(am => [...am]);
+      setMealsOnMenu(meals => meals.filter(m => m.id !== meal.id));
+      setMealsNotOnMenu(meals => [...meals, meal]);
     });
+  }
+
+  const handleDeleteMeal = (mealId) => {
+    if (window.confirm('are you sure?')) {
+      deleteMeal(mealId).then(() => {
+        setMealsNotOnMenu(meals => meals.filter(m => m.id !== mealId));
+      });
+    }
   }
 
   const handleToggleModal = (mealId) => {
@@ -111,20 +174,14 @@ function Menu() {
     showModal(true); 
   }
 
-  const getMealsNotOnMenu = (allMeals, mealsOnMenu) => {
-    const menuMealIds = mealsOnMenu.map(m => m.id);
-    // TODO: case insensitive?
-    return allMeals
-      .filter(m => !menuMealIds.includes(m.id))
-      .sort((a,b) => {
-        if(a.name < b.name) {
-          return -1;
-        } else if (a.name > b.name) {
-          return 1;
-        } else {
-          return 0;
-        }
-      });
+  const sortMealsAlpha = (a, b) => {
+    if(a.name < b.name) {
+        return -1;
+      } else if (a.name > b.name) {
+        return 1;
+      } else {
+        return 0;
+      }
   }
 
   const getModalBody = (mealId) => {
@@ -134,7 +191,7 @@ function Menu() {
           <OtherModalBody
             menuId={menuId}
             closeModal={() => showModal(false)}
-            setAllMeals={setAllMeals}
+            setMealsNotOnMenu={setMealsNotOnMenu}
           />
         );
       case 'existingMeal':
@@ -153,8 +210,8 @@ function Menu() {
        </a>
        <div className={styles.foo}>
        <section>
-         {!!meals.length ? <ul>
-           {meals.map(meal =>
+         {!!mealsOnMenu.length ? <ul>
+           {mealsOnMenu.map(meal =>
              <li key={meal.id}>
                <a href="#" onClick={() => handleToggleModal(meal.id)}>{meal.name}</a>
                <button className={styles.closeButton} onClick={() => handleDeleteClick(meal)}>[X]</button>
@@ -167,9 +224,10 @@ function Menu() {
          <label className={styles.filterLabel} htmlFor="menu-filter">filter meals:</label>
          <input name="menu-filter" type="text" onChange={handleFilterChange}/>
          <ul className={styles.mealsList}>
-          {displayAllMeals().map(meal =>
-            <li key={`${meal.id}-foo`} onClick={() => handleMealClick(meal)}>
-              {meal.name}
+          {displayAllMeals(mealsNotOnMenu).sort(sortMealsAlpha).map(meal =>
+            <li key={`${meal.id}-foo`}>
+              <span onClick={() => handleMealClick(meal)}>{meal.name}</span>
+              <button className={styles.closeButton} onClick={() => handleDeleteMeal(meal.id)}>[X]</button>
             </li>)}
          </ul>
       </section>
@@ -226,11 +284,11 @@ function ModalBody({mealId}) {
   </div>);
 }
 
-function OtherModalBody({menuId, closeModal, setAllMeals}) {
+function OtherModalBody({menuId, closeModal, setMealsNotOnMenu}) {
   const [textBoxes, setTextBoxes] = useState(1);
   const [values, setValues] = useState([]);
   const [allIngredients, setAllIngredients] = useState([]);
-  const [ingredientIdMap, setIngredientIdMap] = useState([]);
+  const [ingredientNameToIdMap, setIngredientNameToIdMap] = useState([]);
   const [allUnits, setAllUnits] = useState([]);
   const [allCategories, setAllCategories] = useState([]);
   const [mealName, setMealName] = useState('');
@@ -238,7 +296,7 @@ function OtherModalBody({menuId, closeModal, setAllMeals}) {
   useEffect(() => {
     fetchAllIngredients().then(is => {
       setAllIngredients(is.map(i => i.name));
-      setIngredientIdMap(is.reduce((acc, i) => {
+      setIngredientNameToIdMap(is.reduce((acc, i) => {
         return {...acc, [i.name]: i.id}
       }, {}))
     });
@@ -256,6 +314,18 @@ function OtherModalBody({menuId, closeModal, setAllMeals}) {
     setTextBoxes(tbs => tbs + 1);
   };
 
+  // returns [existing, new]
+  function divideThings(is, f) {
+    return is.reduce((acc, a) => {
+      if (f(a)) {
+        acc[0] = [...acc[0], a];
+      } else {
+        acc[1] = [...acc[1], a];
+      }
+      return acc;
+    }, [[], []]);
+  }
+
   const handleChange = (idx, value, field) => {
     const ingredients = [...values]
     const item = ingredients[idx];
@@ -269,54 +339,112 @@ function OtherModalBody({menuId, closeModal, setAllMeals}) {
     setValues(ingredients);
   }
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    fetch(
-      'http://localhost:5000/api/groceries/v1/meals',
-      {
-        method: 'POST',
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({name: mealName})
+  function divideIngredients(xs, map) {
+    const newIngredients = [];
+    const existingIngredients = [];
+    xs.forEach(x => {
+      if (ingredientNameToIdMap[x.name]) {
+        existingIngredients.push({...x, id: ingredientNameToIdMap[x.name]});
+      } else {
+        newIngredients.push(x);
       }
-    ).then(r => r.json())
-      .then(meal => {
-        return meal
-      })
-      .then(meal => {
-        const calls = values.map(value => {
-          if (!ingredientIdMap[value.name]) {
-            const { quantity, ...rest} = value
-            return fetch(
-              'http://localhost:5000/api/groceries/v1/ingredients',
-              {
-                method: 'POST',
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify(rest)
-              }).then(r => {
-                return r.json()
-              }).then(ingredient => {
-                return {quantity, ingredient_id: ingredient.id}
-              }).then(thing => {
-                return fetch('http://localhost:5000/api/groceries/v1/meals-ingredients',
-                  {
-                    method: 'POST',
-                    headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify({meal_id: meal.id, ...thing})
-                  }
-                );
-              }).then(() => {
-                setValues([]);
-                setTextBoxes(1);
-                closeModal();
-                setAllMeals(meals => [...meals, meal]);
-              })
-          } else {
-            return null
-          }
-        }).filter(v => v !== null)
-        return Promise.all(calls);
-      }).catch(e => console.error(e));
-;
+    });
+    return [existingIngredients, newIngredients];
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    const nameToQuantityMap = values.reduce((acc, a) => {
+      return ({...acc, [a.name]: a.quantity});
+    }, {});
+
+    const [existingIngredients, newIngredients] = divideIngredients(values).map(is =>
+      is.map(i => {
+        const {quantity, ...rest} = i;
+        return rest; 
+      }));
+
+    createMeal(mealName).then(meal => {
+      return createIngredientsBatch(newIngredients).then(createdIngredients => {
+        const ingredientsForMeal = [...createdIngredients, ...existingIngredients].map(ing => {
+          return ({quantity: nameToQuantityMap[ing.name], id: ing.id});
+        });
+
+        return addIngredientsToMeal(meal.id, ingredientsForMeal).then(() => {
+          setValues([]);
+          setTextBoxes(1);
+          closeModal();
+          setMealsNotOnMenu(meals => [...meals, meal]);
+        });
+      });
+    });
+
+
+
+//     createMeal().then(meal => {
+//       const [existing, newVals] = divideThings(is, a => ingredientNameToIdMap[a.name]);
+//       // create new
+//       // associate all
+//       const newWithIds = createNewIngredients(newVals)
+//       associateWithMeal(meal, existing, ids)
+      
+      
+//     })
+
+//     fetch(
+//       'http://localhost:5000/api/groceries/v1/meals',
+//       {
+//         method: 'POST',
+//         headers: {"Content-Type": "application/json"},
+//         body: JSON.stringify({name: mealName})
+//       }
+//     ).then(r => r.json())
+//       .then(meal => {
+//         const calls = values.map(value => {
+//           // if not in map
+//           //   create ingredient
+//           //   do all the other stuff
+//           // else
+//           //   only do the other stuff
+
+//           // TODO I think this causes a bug if you use an existing ingredient 
+//           // it isn't associated with the meal and the modal cleanup stuff doesn't happen
+//           // so you'd only want to create the ingredient conditionally
+//           // everything else you'd do regardless of it being a new ingredient
+//           if (!ingredientNameToIdMap[value.name]) {
+//             const { quantity, ...rest} = value
+//             return fetch(
+//               'http://localhost:5000/api/groceries/v1/ingredients',
+//               {
+//                 method: 'POST',
+//                 headers: {"Content-Type": "application/json"},
+//                 body: JSON.stringify(rest)
+//               }).then(r => {
+//                 return r.json()
+//               }).then(ingredient => {
+//                 return {quantity, ingredient_id: ingredient.id}
+//               }).then(thing => {
+//                 return fetch('http://localhost:5000/api/groceries/v1/meals-ingredients',
+//                   {
+//                     method: 'POST',
+//                     headers: {"Content-Type": "application/json"},
+//                     body: JSON.stringify({meal_id: meal.id, ...thing})
+//                   }
+//                 );
+//               }).then(() => {
+//                 setValues([]);
+//                 setTextBoxes(1);
+//                 closeModal();
+//                 setMealsNotOnMenu(meals => [...meals, meal]);
+//               })
+//           } else {
+//             return null
+//           }
+//         }).filter(v => v !== null)
+//         return Promise.all(calls);
+//       }).catch(e => console.error(e));
+// ;
   }
 
   function getValue(idx, field) {
@@ -332,6 +460,8 @@ function OtherModalBody({menuId, closeModal, setAllMeals}) {
     setMealName(e.target.value);
   }
 
+  // TODO if it's a known ingredient, we should be able to set the category and unit
+
   return (
     <div>
       <button onClick={handleAddClick}>add</button>
@@ -340,7 +470,7 @@ function OtherModalBody({menuId, closeModal, setAllMeals}) {
         <input name="meal-name" value={mealName} onChange={handleMealChange} type="text"/>
         {[...Array(textBoxes).keys()].map(idx => {
           return (
-            <div>
+            <div key={idx}>
               <label htmlFor={`new-ingredient-name-${idx}`}>Ingredient Name</label>
               <AutoComplete
                 suggestions={allIngredients}
