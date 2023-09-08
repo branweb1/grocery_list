@@ -129,6 +129,7 @@ function Menu() {
     ).then(() => {
       setMealsOnMenu(meals => [...meals, meal]);
       setMealsNotOnMenu(mealsNotOnMenu => mealsNotOnMenu.filter(m => m.id !== meal.id))
+      showModal(false);
     })
   }
 
@@ -157,12 +158,13 @@ function Menu() {
     if (window.confirm('are you sure?')) {
       deleteMeal(mealId).then(() => {
         setMealsNotOnMenu(meals => meals.filter(m => m.id !== mealId));
+        showModal(false);
       });
     }
   }
 
-  const handleToggleModal = (mealId) => {
-    setCurrentMeal(mealId);
+  const handleToggleModal = (meal) => {
+    setCurrentMeal(meal);
     setModalPage('existingMeal');
     showModal(true);
   }
@@ -184,7 +186,7 @@ function Menu() {
       }
   }
 
-  const getModalBody = (mealId) => {
+  const getModalBody = (meal) => {
     switch(modalPage) {
       case 'newMeal':
         return (
@@ -195,7 +197,10 @@ function Menu() {
           />
         );
       case 'existingMeal':
-        return (<ModalBody mealId={mealId}/>);
+        return (<ModalBody
+                  handleAdd={() => handleMealClick(meal)}
+                  handleDelete={() => handleDeleteMeal(meal.id)}
+                  mealId={meal.id}/>);
       default:
         return null;
     }
@@ -213,7 +218,7 @@ function Menu() {
          {!!mealsOnMenu.length ? <ul>
            {mealsOnMenu.map(meal =>
              <li key={meal.id}>
-               <a href="#" onClick={() => handleToggleModal(meal.id)}>{meal.name}</a>
+               {meal.name}
                <button className={styles.closeButton} onClick={() => handleDeleteClick(meal)}>[X]</button>
              </li>
            )}
@@ -225,9 +230,8 @@ function Menu() {
          <input name="menu-filter" type="text" onChange={handleFilterChange}/>
          <ul className={styles.mealsList}>
           {displayAllMeals(mealsNotOnMenu).sort(sortMealsAlpha).map(meal =>
-            <li key={`${meal.id}-foo`}>
-              <span onClick={() => handleMealClick(meal)}>{meal.name}</span>
-              <button className={styles.closeButton} onClick={() => handleDeleteMeal(meal.id)}>[X]</button>
+            <li key={`${meal.id}-foo`} onClick={() => handleToggleModal(meal)}>
+              {meal.name}
             </li>)}
          </ul>
       </section>
@@ -261,7 +265,7 @@ async function fetchAllUnits() {
   return units;
 }
 
-function ModalBody({mealId}) {
+function ModalBody({mealId, handleAdd, handleDelete}) {
   if (!mealId) return;
 
   // TODO: generalize this
@@ -277,11 +281,20 @@ function ModalBody({mealId}) {
   }, []);
 
   // TODO: make these editable
-  return (<div>
-    <ul>
-      {ingredients.map(i => <li key={`${i.id}-${i.name}`}>{i.name} {i.quantity} {i.unit}</li>)}
-    </ul>
-  </div>);
+  return (
+    <div>
+      <ul>
+        {
+          ingredients.map(i =>
+            <li key={`${i.id}-${i.name}`}>
+              {i.name} {i.quantity} {i.unit}
+            </li>)
+        }
+      </ul>
+      <button onClick={handleDelete}>delete meal</button>
+      <button onClick={handleAdd}>add to menu</button>
+    </div>
+  );
 }
 
 function OtherModalBody({menuId, closeModal, setMealsNotOnMenu}) {
