@@ -230,8 +230,9 @@ function Menu() {
          <input name="menu-filter" type="text" onChange={handleFilterChange}/>
          <ul className={styles.mealsList}>
           {displayAllMeals(mealsNotOnMenu).sort(sortMealsAlpha).map(meal =>
-            <li key={`${meal.id}-foo`} onClick={() => handleToggleModal(meal)}>
-              {meal.name}
+            <li key={`${meal.id}-foo`}>
+              <span onClick={() => handleToggleModal(meal)}>{meal.name}</span>
+              <button className={styles.addButton} onClick={() => handleMealClick(meal)}>[+]</button>               
             </li>)}
          </ul>
       </section>

@@ -27,12 +27,12 @@
   margin-top: 18px;
 }
 
-.mealsList li {
+.mealsList li > span {
   margin-bottom: 8px;
   cursor: pointer;
 }
 
-.mealsList li:hover {
+.mealsList li span:hover {
   color: red;
 }
 
@@ -63,6 +63,7 @@
 }
 
 .modalCloseButton,
+.addButton,
 .closeButton {
   background-color: transparent;
   border: none;
@@ -74,6 +75,10 @@
   position: absolute;
   top: 10px;
   right: 10px;
+}
+
+.addButton:hover {
+  color: green;
 }
 
 .closeButton:hover {
