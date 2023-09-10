@@ -3,3 +3,4 @@ __pycache__
 groceryvenv
 dist
 node_modules
+bundle.js

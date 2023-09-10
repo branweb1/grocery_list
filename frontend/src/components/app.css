@@ -52,13 +52,14 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 600px;
+  width: 740px;
   max-width: 100%;
   height: 400px;
   max-height: 100%;
   z-index: 1010;
   padding: 20px;
   background-color: #FFF;
+  overflow: scroll;
 }
 
 .modalCloseButton,
@@ -91,26 +92,53 @@
 
 
 /* new meal modal */
-.newMealForm label,
-.newMealForm input
- {
-  display: inline-block;
-  width: 45%;
+.mealNameInput {
+  padding-bottom: 15px;
 }
 
-.newMealForm span
- {
-  display: inline-block;
-  width: 45%;
+.mealNameInput label {
+  padding-right: 10px;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.newMealForm {
+  position: relative;
+}
+
+.saveButton {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+}
+
+.newMealForm th {
+  text-align: left;
+  padding-bottom: 10px;
+}
+
+.newMealForm td {
+  padding-right: 10px;
+  padding-bottom: 10px;
 }
 
 
 .autoCompleteContainer {
   display: inline-block;
+  position: relative;
 }
 
 .autoCompleteContainer input {
   width: 100%;
+}
+
+.autoCompleteContainer ul {
+  position: absolute;
+  z-index: 100001;
+  background-color: white;
 }
 
 .active {

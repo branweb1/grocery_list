@@ -310,7 +310,7 @@ function OtherModalBody({menuId, closeModal, setMealsNotOnMenu}) {
     fetchAllIngredients().then(is => {
       setAllIngredients(is.map(i => i.name));
       setIngredientNameToIdMap(is.reduce((acc, i) => {
-        return {...acc, [i.name]: i.id}
+        return {...acc, [i.name]: i}
       }, {}))
     });
   }, []);
@@ -344,6 +344,17 @@ function OtherModalBody({menuId, closeModal, setMealsNotOnMenu}) {
     const item = ingredients[idx];
     if (item) {
       ingredients[idx] = {...item, [field]: value};
+      if (field === 'name') {
+        const existingIngredient = ingredientNameToIdMap[value];
+        if (existingIngredient) {
+          ingredients[idx] = {
+            ...item,
+            name: existingIngredient.name,
+            category: existingIngredient.category,
+            unit: existingIngredient.unit
+          }
+        }
+      }
     } else {
       const ingredient = {};
       ingredient[field] = value;
@@ -357,7 +368,7 @@ function OtherModalBody({menuId, closeModal, setMealsNotOnMenu}) {
     const existingIngredients = [];
     xs.forEach(x => {
       if (ingredientNameToIdMap[x.name]) {
-        existingIngredients.push({...x, id: ingredientNameToIdMap[x.name]});
+        existingIngredients.push({...x, id: ingredientNameToIdMap[x.name].id});
       } else {
         newIngredients.push(x);
       }
@@ -392,72 +403,6 @@ function OtherModalBody({menuId, closeModal, setMealsNotOnMenu}) {
         });
       });
     });
-
-
-
-//     createMeal().then(meal => {
-//       const [existing, newVals] = divideThings(is, a => ingredientNameToIdMap[a.name]);
-//       // create new
-//       // associate all
-//       const newWithIds = createNewIngredients(newVals)
-//       associateWithMeal(meal, existing, ids)
-      
-      
-//     })
-
-//     fetch(
-//       'http://localhost:5000/api/groceries/v1/meals',
-//       {
-//         method: 'POST',
-//         headers: {"Content-Type": "application/json"},
-//         body: JSON.stringify({name: mealName})
-//       }
-//     ).then(r => r.json())
-//       .then(meal => {
-//         const calls = values.map(value => {
-//           // if not in map
-//           //   create ingredient
-//           //   do all the other stuff
-//           // else
-//           //   only do the other stuff
-
-//           // TODO I think this causes a bug if you use an existing ingredient 
-//           // it isn't associated with the meal and the modal cleanup stuff doesn't happen
-//           // so you'd only want to create the ingredient conditionally
-//           // everything else you'd do regardless of it being a new ingredient
-//           if (!ingredientNameToIdMap[value.name]) {
-//             const { quantity, ...rest} = value
-//             return fetch(
-//               'http://localhost:5000/api/groceries/v1/ingredients',
-//               {
-//                 method: 'POST',
-//                 headers: {"Content-Type": "application/json"},
-//                 body: JSON.stringify(rest)
-//               }).then(r => {
-//                 return r.json()
-//               }).then(ingredient => {
-//                 return {quantity, ingredient_id: ingredient.id}
-//               }).then(thing => {
-//                 return fetch('http://localhost:5000/api/groceries/v1/meals-ingredients',
-//                   {
-//                     method: 'POST',
-//                     headers: {"Content-Type": "application/json"},
-//                     body: JSON.stringify({meal_id: meal.id, ...thing})
-//                   }
-//                 );
-//               }).then(() => {
-//                 setValues([]);
-//                 setTextBoxes(1);
-//                 closeModal();
-//                 setMealsNotOnMenu(meals => [...meals, meal]);
-//               })
-//           } else {
-//             return null
-//           }
-//         }).filter(v => v !== null)
-//         return Promise.all(calls);
-//       }).catch(e => console.error(e));
-// ;
   }
 
   function getValue(idx, field) {
@@ -473,44 +418,80 @@ function OtherModalBody({menuId, closeModal, setMealsNotOnMenu}) {
     setMealName(e.target.value);
   }
 
-  // TODO if it's a known ingredient, we should be able to set the category and unit
+  const handleNameSelect = (name, idx) => {
+    const ing = ingredientNameToIdMap[name];
+    // if known ingredient
+    if (ing) {
+      const foo = [...values];
+      const item = foo[idx]
+      if (item) {
+        foo[idx] = {...item, name: ing.name, category: ing.category, unit: ing.unit}
+        setValues(foo)
+      }
+    }
+  }
 
   return (
-    <div>
-      <button onClick={handleAddClick}>add</button>
-      <div className={styles.newMealForm}>
+    <div className={styles.newMealForm}>
+      <div className={styles.mealNameInput}>
         <label htmlFor="meal-name">Meal Name</label>
         <input name="meal-name" value={mealName} onChange={handleMealChange} type="text"/>
-        {[...Array(textBoxes).keys()].map(idx => {
-          return (
-            <div key={idx}>
-              <label htmlFor={`new-ingredient-name-${idx}`}>Ingredient Name</label>
-              <AutoComplete
-                suggestions={allIngredients}
-                onChange={e => handleChange(idx, e, 'name')}
-                name={`new-ingredient-name-${idx}`}/>
-              <label htmlFor={`new-ingredient-quantity-${idx}`}>Quantity</label>
-              <input
-                name={`new-ingredient-quantity-${idx}`}
-                key={`new-ingredient-quantity-${idx}`}
-                value={getValue(idx, 'quantity')}
-                onChange={e => handleChange(idx, e.target.value, 'quantity')}
-                type="text"/>
-              <label htmlFor={`new-ingredient-unit-${idx}`}>Unit (optional)</label>
-              <AutoComplete
-                suggestions={allUnits}
-                onChange={e => handleChange(idx, e, 'unit')}
-                name={`new-ingredient-unit-${idx}`}/>
-              <label htmlFor={`new-ingredient-category-${idx}`}>Category</label>
-              <AutoComplete
-                suggestions={allCategories}
-                onChange={e => handleChange(idx, e, 'category')}
-                name={`new-ingredient-category-${idx}`}/>
-            </div>
-          );
-        })}
-        <button onClick={handleSubmit}>save</button>
       </div>
+      <table>
+        <thead>
+          <tr>
+            <th>
+              Ingredient Name
+            </th>
+            <th>
+              Quantity
+            </th>
+            <th>
+              Unit (optional)
+            </th>
+            <th>
+              Category
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {[...Array(textBoxes).keys()].map(idx =>
+            <tr key={idx}>
+              <td>
+                <AutoComplete
+                  suggestions={allIngredients}
+                  onChange={e => handleChange(idx, e, 'name')}
+                  fallbackValue={getValue(idx, 'name')}
+                  name={`new-ingredient-name-${idx}`}/>
+              </td>
+              <td>
+                <input
+                  name={`new-ingredient-quantity-${idx}`}
+                  key={`new-ingredient-quantity-${idx}`}
+                  value={getValue(idx, 'quantity')}
+                  onChange={e => handleChange(idx, e.target.value, 'quantity')}
+                  type="text"/>
+              </td>
+              <td>
+                <AutoComplete
+                  suggestions={allUnits}
+                  fallbackValue={getValue(idx, 'unit')}
+                  onChange={e => handleChange(idx, e, 'unit')}
+                  name={`new-ingredient-unit-${idx}`}/>
+              </td>
+              <td>
+                <AutoComplete
+                  suggestions={allCategories}
+                  fallbackValue={getValue(idx, 'category')}
+                  onChange={e => handleChange(idx, e, 'category')}
+                  name={`new-ingredient-category-${idx}`}/>
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+      <button onClick={handleAddClick}>Add Ingredient</button>
+      <button className={styles.saveButton} onClick={handleSubmit}>save</button>
     </div>
   );
 }
@@ -529,7 +510,7 @@ function Modal({children, onCloseClick}) {
   );
 }
 
-function AutoComplete({suggestions, onChange}) {
+function AutoComplete({suggestions, onChange, fallbackValue}) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [filteredSuggestions, setFilteredSuggestions] = useState([]);
   const [userInput, setUserInput] = useState('');
@@ -554,9 +535,9 @@ function AutoComplete({suggestions, onChange}) {
   const handleKeyDown =(e) => {
     if (e.keyCode === 13) { // enter
       setUserInput(filteredSuggestions[selectedIndex]);
+      onChange(filteredSuggestions[selectedIndex])
       setSelectedIndex(0);
       setShowSuggestions(false)
-      onChange(filteredSuggestions[selectedIndex])
     } else if (e.keyCode === 38) { // up
       if (selectedIndex > 0) {
         setSelectedIndex(si => si - 1);
@@ -570,7 +551,7 @@ function AutoComplete({suggestions, onChange}) {
 
   return (
     <span className={styles.autoCompleteContainer}>
-      <input type='text' name={name} onKeyDown={handleKeyDown} onChange={handleChange} value={userInput} />
+      <input type='text' name={name} onKeyDown={handleKeyDown} onChange={handleChange} value={fallbackValue} />
       {showSuggestions && userInput && filteredSuggestions.length ?
        (<ul>
           {filteredSuggestions.map((fs, idx) => {
