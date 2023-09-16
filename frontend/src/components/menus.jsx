@@ -4,11 +4,11 @@ import otherStyles from './app.css';
 import { Link } from 'react-router-dom';
 
 async function deleteMenu(menuId) {
-  return await fetch(`http://localhost:5000/api/groceries/v1/menus/${menuId}`, {method: 'DELETE'});
+  return await fetch(`/api/groceries/v1/menus/${menuId}`, {method: 'DELETE'});
 }
 
 async function fetchMenus() {
-  const response = await fetch('http://localhost:5000/api/groceries/v1/menus');
+  const response = await fetch('/api/groceries/v1/menus');
   const menus = await response.json();
   return menus;
 }
@@ -45,7 +45,7 @@ export function Menus() {
   const handleSubmit = (e) => {
     e.preventDefault();
     fetch(
-      'http://localhost:5000/api/groceries/v1/menus',
+      '/api/groceries/v1/menus',
       {
         headers: { "Content-Type": "application/json"},
         method: 'POST',
@@ -69,7 +69,7 @@ export function Menus() {
         {menus.map(menu => {
           return (
             <li key={menu.id}>
-              <Link to={`http://localhost:5000/menus/${menu.id}/meals`}>
+              <Link to={`/menus/${menu.id}/meals`}>
                 {menu.name}
               </Link>
               <button

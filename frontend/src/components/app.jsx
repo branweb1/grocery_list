@@ -4,35 +4,35 @@ import { BrowserRouter as Router, Routes, Route, Link, useParams, Outlet } from 
 import { Menus } from './menus.jsx';
 
 async function fetchMenu(menuId) {
-  return await fetch(`http://localhost:5000/api/groceries/v1/menus/${menuId}`).then(r => r.json())
+  return await fetch(`/api/groceries/v1/menus/${menuId}`).then(r => r.json())
 }
 
 async function fetchMealsForMenu(menuId) {
-  const response = await fetch(`http://localhost:5000/api/groceries/v1/menus/${menuId}/meals`);
+  const response = await fetch(`/api/groceries/v1/menus/${menuId}/meals`);
   const meals = await response.json();
   return meals
 }
 
 async function fetchMeals() {
-  const response = await fetch('http://localhost:5000/api/groceries/v1/meals');
+  const response = await fetch('/api/groceries/v1/meals');
   const meals = await response.json();
   return meals;
 }
 
 async function deleteMealFromMenu(mealId) {
-  const response = await fetch(`http://localhost:5000/api/groceries/v1/meals/${mealId}/menus`, {method: 'DELETE'});
+  const response = await fetch(`/api/groceries/v1/meals/${mealId}/menus`, {method: 'DELETE'});
   const msg = await response.json();
   return msg;
 }
 
 async function deleteMeal(mealId) {
-  const response = await fetch(`http://localhost:5000/api/groceries/v1/meals/${mealId}`, {method: 'DELETE'});
+  const response = await fetch(`/api/groceries/v1/meals/${mealId}`, {method: 'DELETE'});
   const msg = await response.json();
 }
 
 async function createMeal(mealName) {
   const meal = await fetch(
-    'http://localhost:5000/api/groceries/v1/meals',
+    '/api/groceries/v1/meals',
     {
       method: 'POST',
       headers: {"Content-Type": "application/json"},
@@ -44,7 +44,7 @@ async function createMeal(mealName) {
 
 async function createIngredient(info) {
   return fetch(
-    'http://localhost:5000/api/groceries/v1/ingredients',
+    '/api/groceries/v1/ingredients',
     {
       method: 'POST',
       headers: {"Content-Type": "application/json"},
@@ -59,7 +59,7 @@ async function createIngredientsBatch(ingredients) {
     return Promise.resolve([]);
   }
   return fetch(
-    'http://localhost:5000/api/groceries/v1/ingredients/batch',
+    '/api/groceries/v1/ingredients/batch',
     {
       method: 'POST',
       headers: {"Content-Type": "application/json"},
@@ -72,7 +72,7 @@ async function createIngredientsBatch(ingredients) {
 async function addIngredientsToMeal(mealId, ingredients) {
 
   return fetch(
-    'http://localhost:5000/api/groceries/v1/meals-ingredients/batch',
+    '/api/groceries/v1/meals-ingredients/batch',
     {
       method: 'POST',
       headers: {"Content-Type": "application/json"},
@@ -86,7 +86,7 @@ function Home() {
     <div className={styles.container}>
       <header>
         <h3>
-          <Link to="http://localhost:5000">Grocery List</Link>
+          <Link to="">Grocery List</Link>
         </h3>
       </header>
       <Outlet />
@@ -124,7 +124,7 @@ function Menu() {
 
   const handleMealClick = (meal) => {
     return fetch(
-      `http://localhost:5000/api/groceries/v1/meals/${meal.id}/menus/${menuId}`,
+      `/api/groceries/v1/meals/${meal.id}/menus/${menuId}`,
       {method: 'PUT'}
     ).then(() => {
       setMealsOnMenu(meals => [...meals, meal]);
@@ -210,7 +210,7 @@ function Menu() {
   return (
      <div className={styles.menu}>
        { menu && <h5 className="subheader">{`Menu ${menu.name}`}</h5>}
-       <a href={`http://localhost:5000/api/groceries/v1/menus/${menuId}/shopping_list`}>
+       <a href={`/api/groceries/v1/menus/${menuId}/shopping_list`}>
        <button>Download Shopping List</button>
        </a>
        <div className={styles.foo}>
@@ -243,25 +243,25 @@ function Menu() {
 }
 
 async function fetchIngredientsForMeal(mealId) {
-  const response = await fetch(`http://localhost:5000/api/groceries/v1/meals/${mealId}/ingredients`);
+  const response = await fetch(`/api/groceries/v1/meals/${mealId}/ingredients`);
   const ingredients = response.json();
   return ingredients;
 }
 
 async function fetchAllIngredients() {
-  const response = await fetch('http://localhost:5000/api/groceries/v1/ingredients');
+  const response = await fetch('/api/groceries/v1/ingredients');
   const ingredients = response.json();
   return ingredients;
 }
 
 async function fetchAllCategories() {
-  const response = await fetch('http://localhost:5000/api/groceries/v1/ingredients/categories');
+  const response = await fetch('/api/groceries/v1/ingredients/categories');
   const categories = response.json();
   return categories;
 }
 
 async function fetchAllUnits() {
-  const response = await fetch('http://localhost:5000/api/groceries/v1/ingredients/units');
+  const response = await fetch('/api/groceries/v1/ingredients/units');
   const units = response.json();
   return units;
 }
