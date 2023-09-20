@@ -71,6 +71,11 @@
   font-weight: bold;
 }
 
+.modalHeader {
+  text-align: left;
+  margin-bottom: 15px;
+}
+
 .modalCloseButton {
   position: absolute;
   top: 10px;

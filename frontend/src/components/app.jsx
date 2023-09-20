@@ -200,7 +200,7 @@ function Menu() {
         return (<ModalBody
                   handleAdd={() => handleMealClick(meal)}
                   handleDelete={() => handleDeleteMeal(meal.id)}
-                  mealId={meal.id}/>);
+                  meal={meal}/>);
       default:
         return null;
     }
@@ -266,7 +266,8 @@ async function fetchAllUnits() {
   return units;
 }
 
-function ModalBody({mealId, handleAdd, handleDelete}) {
+function ModalBody({meal, handleAdd, handleDelete}) {
+  const { id: mealId, name: mealName } = meal;
   if (!mealId) return;
 
   // TODO: generalize this
@@ -284,6 +285,7 @@ function ModalBody({mealId, handleAdd, handleDelete}) {
   // TODO: make these editable
   return (
     <div>
+      <h5 className={styles.modalHeader}>{mealName}</h5>
       <ul>
         {
           ingredients.map(i =>

@@ -342,7 +342,7 @@ def fake():
     created = []
     for ingredient in ingredients:
         ingredient_id = ingredient["id"]
-        qty = ingredient["quantity"]
+        qty = ingredient["quantity"] if "quantity" in ingredient else None
         meal_ingredient = schema.make_meal_ingredient(meal_id, ingredient_id, qty)
         created.append(meal_ingredient)
         db.session.add(meal_ingredient)
