@@ -1,0 +1,3 @@
+sqlalchemy.exc.DataError: (psycopg2.errors.InvalidTextRepresentation) invalid input syntax for type numeric: "" [SQL: INSERT INTO meals_ingredients (meal_id, ingredient_id, quantity) SELECT p0::INTEGER, p1::INTEGER, p2::NUMERIC FROM (VALUES (%(meal_id__0)s, %(ingredient_id__0)s, %(quantity__0)s, 0), (%(meal_id__1)s, %(ingredient_id__1)s, %(quantity__1)s, 1)) AS imp_sen(p0, p1, p2, sen_counter) ORDER BY sen_counter RETURNING meals_ingredients.id, meals_ingredients.id AS id__1] [parameters: {'meal_id__0': 92, 'quantity__0': '1', 'ingredient_id__0': 196, 'meal_id__1': 92, 'quantity__1': '', 'ingredient_id__1': 197}] (Background on this error at: https://sqlalche.me/e/20/9h9h)
+
+caused by trying to add new ingredient without a quantity

@@ -81,6 +81,18 @@ async function addIngredientsToMeal(mealId, ingredients) {
   ).then(r => r.json());
 }
 
+async function updateIngredientsforMeal(mealId, ingredients) {
+
+  return fetch(
+    '/api/groceries/v1/meals-ingredients/batch',
+    {
+      method: 'PUT',
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({meal_id: mealId, ingredients})
+    }
+  ).then(r => r.json());
+}
+
 function Home() {
   return (
     <div className={styles.container}>
@@ -200,7 +212,10 @@ function Menu() {
         return (<ModalBody
                   handleAdd={() => handleMealClick(meal)}
                   handleDelete={() => handleDeleteMeal(meal.id)}
+		  handleEdit={() => setModalPage('editMeal')}
                   meal={meal}/>);
+      case 'editMeal':
+        return (<EditModalBody setModalPage={setModalPage} meal={meal} />)
       default:
         return null;
     }
@@ -266,7 +281,7 @@ async function fetchAllUnits() {
   return units;
 }
 
-function ModalBody({meal, handleAdd, handleDelete}) {
+function ModalBody({meal, handleAdd, handleDelete, handleEdit}) {
   const { id: mealId, name: mealName } = meal;
   if (!mealId) return;
 
@@ -296,6 +311,75 @@ function ModalBody({meal, handleAdd, handleDelete}) {
       </ul>
       <button onClick={handleDelete}>delete meal</button>
       <button onClick={handleAdd}>add to menu</button>
+      <button onClick={handleEdit}>edit meal</button>
+    </div>
+  );
+}
+
+function EditModalBody({meal, setModalPage}) {
+  const { id: mealId, name: mealName } = meal;
+  const [ingredients, setIngredients] = useState([]);
+
+  useEffect(() => {
+    fetchIngredientsForMeal(mealId).then(ingredients => {
+      setIngredients(ingredients.map(i => ({...i, updated: false})))
+    })
+  }, []);
+
+  function getValue(idx, field) {
+    let value = '';
+    const item = ingredients[idx];
+    if (item && item[field]) {
+      value = item[field];
+    }
+    return value;
+  }
+
+
+  const handleChange = (idx, value, field) => {
+    const newIngredients = [...ingredients];
+    const item = newIngredients[idx];
+    if (item) {
+      newIngredients[idx] = {...item, updated: true, [field]: value};
+      setIngredients(newIngredients);
+    }
+  }
+
+  const handleSubmit = async e => {
+    e.preventDefault();
+    updateIngredientsforMeal(mealId, ingredients.filter(i => i.updated === true))
+      .then(r => setModalPage('existingMeal'))
+      .catch(err => console.error(err));
+  }
+  
+  return (
+    <div>
+      <h5 className={styles.modalHeader}>{mealName}</h5>
+      <form onSubmit={handleSubmit}>
+        {
+          ingredients.map((i, idx) =>
+	    <div key={`${i.id}-ingredient`}>
+            <input
+	      key={`${i.id}-${i.name}-${idx}`}
+	      name={`ingredient-name-${idx}`}
+	      value={getValue(idx, 'name')}
+	      onChange={e => handleChange(idx, e.target.value, 'name')}/>
+            <input
+	      key={`${i.id}-quantity-${idx}`}
+	      name={`ingredient-quantity-${idx}`}
+	      value={getValue(idx, 'quantity')}
+	      onChange={e => handleChange(idx, e.target.value, 'quantity')}/>
+            <input
+	      key={`${i.id}-unit-${idx}`}
+	      name={`ingredient-unit-${idx}`}
+	      value={getValue(idx, 'unit')}
+	      onChange={e => handleChange(idx, e.target.value, 'unit')}/> 
+	      </div>
+	  )
+        }
+	<input type="submit" value="submit"/>
+
+      </form>
     </div>
   );
 }

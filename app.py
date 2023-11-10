@@ -13,8 +13,6 @@ app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql+psycopg2://branweb@localhost
 
 db.init_app(app)
 
-# TODO: add a print feature...you'd need to run the raw sql query, then integrate that old python script to put it into a word doc, then stream that doc
-
 # this (de)serializes an object into json
 class IngredientSchema(Schema):
     id = fields.Int(dump_only=True)
@@ -55,6 +53,7 @@ class MealIngredientSchema(Schema):
         return MealIngredient(meal_id=meal_id, ingredient_id=ingredient_id, quantity=quantity)
 
 class SimpleIngredientSchema(Schema):
+    id = fields.Int(dump_only=True)
     name = fields.Str(dump_only=True)
     quantity = fields.Decimal(places=2, dump_only=True)
     unit = fields.Str(dump_only=True)
@@ -97,7 +96,8 @@ class MealIngredient(db.Model):
 
 # aux classes
 class SimpleIngredient:
-    def __init__(self, name, quantity, unit):
+    def __init__(self, id, name, quantity, unit):
+        self.id = id
         self.name  = name
         self.quantity = quantity
         self.unit = unit
@@ -218,7 +218,7 @@ def get_meals_for_menu(menu_id):
     menu = Menu.query.get_or_404(menu_id)
     return menu.meals
 
-@bp.get('/menus/<int:menu_id>/shopping_list')
+@bp.get('/menus/<int:menu_id>/shopping_list/')
 def get_shopping_list(menu_id):
     menu = Menu.query.get_or_404(menu_id)
     # TODO include stuff common to all menus? Or maybe make that an option
@@ -314,6 +314,7 @@ def get_ingredients_for_meal(meal_id):
     for ingredient in ingredients:
         simple_ingredients.append(
             SimpleIngredient(
+                id = ingredient.ingredient.id,
                 name = ingredient.ingredient.name,
                 quantity = ingredient.quantity,
                 unit = ingredient.ingredient.unit
@@ -348,6 +349,27 @@ def fake():
         db.session.add(meal_ingredient)
     db.session.commit()
     return created
+
+@bp.put('/meals-ingredients/batch')
+@bp.response(200, MealIngredientSchema(many=True))
+def update_meals_ingredients():
+    schema = MealIngredientSchema()
+    meal_id = request.json["meal_id"]
+    ingredients = request.json["ingredients"]
+    meal = Meal.query.get_or_404(meal_id)
+    meal_ingredients = meal.ingredients
+    updated = []
+    for ingredient in ingredients:
+        for meal_ingredient in meal_ingredients:
+            if meal_ingredient.ingredient_id == ingredient['id']:
+                meal_ingredient.quantity = ingredient['quantity']
+                updated.append(meal_ingredient)
+                db.session.add(meal_ingredient)
+                break;
+    db.session.commit()
+
+    return updated
+
 
 @bp.delete('/meals-ingredients')
 @bp.response(200, MealIngredientSchema)
